@@ -1,0 +1,2 @@
+import { Inbox } from 'lucide-react';
+export default function EmptyState({title='Nothing here yet',description='No items are available right now.',action}){return <div className="rounded-2xl border border-bg-border bg-bg-card p-8 text-center"><div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-bg-hover text-gray-400"><Inbox size={22}/></div><h3 className="text-sm font-semibold text-white">{title}</h3><p className="mt-1 text-xs text-gray-400">{description}</p>{action&&<div className="mt-4">{action}</div>}</div>}

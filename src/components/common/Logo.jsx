@@ -1,0 +1,1 @@
+export default function Logo(){return <div className="flex items-center gap-2"><div className="grid h-9 w-9 place-items-center rounded-xl bg-accent-gradient text-white font-bold shadow-glow">S</div><span className="text-lg font-bold text-white">StudentOS</span></div>}

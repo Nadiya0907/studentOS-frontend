@@ -1,0 +1,3 @@
+import { Outlet, Link } from 'react-router-dom';
+import Logo from '../components/common/Logo';
+export default function AuthLayout(){return <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-bg px-4 py-10"><div className="absolute -left-32 -top-32 h-80 w-80 rounded-full bg-accent/15 blur-3xl"/><div className="absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-indigo-500/10 blur-3xl"/><div className="relative w-full max-w-md"><Link to="/" className="mb-8 flex justify-center"><Logo/></Link><Outlet/><p className="mt-6 text-center text-xs text-gray-600">Secure StudentOS account · SIH 2026</p></div></div>}

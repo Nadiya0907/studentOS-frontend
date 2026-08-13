@@ -27,9 +27,10 @@ import Card from "../components/common/Card";
 import Spinner from "../components/common/Spinner";
 import Button from "../components/common/Button";
 import { dashboardService } from "../services/dashboardService";
-
+import { useAuth } from "../context/AuthContext";
 export default function Dashboard() {
   const { onMenu } = useOutletContext() || {};
+  const { user } = useAuth();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,7 +41,7 @@ export default function Dashboard() {
 
     const loadDashboard = async () => {
       try {
-        const response = await dashboardService.getDashboard();
+        const response = await dashboardService.getDashboard(user?.roll_number);
 
         if (mounted) {
           setData(response?.data || response);
@@ -61,7 +62,7 @@ export default function Dashboard() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user?.roll_number]);
 
   const demoData = {
     attendance: 87,

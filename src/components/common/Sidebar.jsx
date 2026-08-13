@@ -7,6 +7,7 @@ import {
   Bot,
   User,
   Settings,
+  FileText,
 } from "lucide-react";
 
 const links = [
@@ -36,6 +37,11 @@ const links = [
     icon: Bot,
   },
   {
+    to: "/resume-builder",
+    label: "Resume Builder",
+    icon: FileText,
+  },
+  {
     to: "/profile",
     label: "Profile",
     icon: User,
@@ -50,7 +56,6 @@ const links = [
 export default function Sidebar() {
   return (
     <aside className="flex h-full w-64 flex-col border-r border-bg-border bg-bg-card">
-      {/* Logo */}
       <div className="border-b border-bg-border px-5 py-5">
         <div className="flex items-center gap-3">
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-accent-gradient text-sm font-black text-white shadow-glow">
@@ -69,7 +74,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {links.map(({ to, label, icon: Icon }) => (
           <NavLink
@@ -89,7 +93,6 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer */}
       <div className="border-t border-bg-border px-4 py-4">
         <p className="text-center text-[10px] text-gray-600">
           v1.0 · SIH 2026

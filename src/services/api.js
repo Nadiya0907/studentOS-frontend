@@ -23,6 +23,5 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
-
 export default api;
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';

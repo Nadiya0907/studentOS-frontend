@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   Briefcase,
@@ -143,6 +143,36 @@ const mockData = {
   ],
 };
 
+const normalizeJobs = (jobs) =>
+  jobs.map((job) => ({
+    ...job,
+    id: job._id || job.id,
+    title: job.title || "Job Opportunity",
+    company:
+      job.company_name ||
+      job.company ||
+      "Company not specified",
+    location: job.location || "Location not specified",
+    type: job.job_type || job.type || "Job",
+    salary:
+      job.stipend_salary ||
+      job.salary ||
+      "Salary not specified",
+    description: job.description || "",
+    skills: job.skills_required
+      ? String(job.skills_required)
+          .split(",")
+          .map((skill) => skill.trim())
+          .filter(Boolean)
+      : Array.isArray(job.skills)
+      ? job.skills
+      : [],
+    posted: job.posted_date || job.posted || "",
+    apply_link: job.apply_link || "",
+    posted_by: job.posted_by || "Placement Cell",
+    recommended: Boolean(job.recommended),
+  }));
+
 export default function Placement() {
   const { onMenu } = useOutletContext() || {};
 
@@ -160,35 +190,72 @@ export default function Placement() {
       setLoading(true);
       setUsingDemoData(false);
 
-      const services = {
-        jobs: placementService.getJobs,
-        companies: placementService.getCompanies,
-        internships: placementService.getInternships,
-      };
-
       try {
-        const service = services[active];
+        let response;
 
-        if (!service) {
-          throw new Error("Unknown placement category");
-        }
+        if (active === "jobs") {
+          response = await placementService.getJobs();
 
-        const response = await service();
+          const jobs =
+            response?.data?.jobs ||
+            response?.jobs ||
+            [];
 
-        const responseItems =
-          response?.data?.items ||
-          response?.data ||
-          [];
+          if (mounted) {
+            if (Array.isArray(jobs) && jobs.length > 0) {
+              setItems(normalizeJobs(jobs));
+            } else {
+              setItems(mockData.jobs);
+              setUsingDemoData(true);
+            }
+          }
+        } else if (active === "companies") {
+          response = await placementService.getCompanies();
 
-        if (mounted) {
-          if (Array.isArray(responseItems) && responseItems.length > 0) {
-            setItems(responseItems);
-          } else {
-            setItems(mockData[active]);
-            setUsingDemoData(true);
+          const companies =
+            response?.data?.companies ||
+            response?.data ||
+            response?.companies ||
+            [];
+
+          if (mounted) {
+            if (
+              Array.isArray(companies) &&
+              companies.length > 0
+            ) {
+              setItems(companies);
+            } else {
+              setItems(mockData.companies);
+              setUsingDemoData(true);
+            }
+          }
+        } else if (active === "internships") {
+          response = await placementService.getInternships();
+
+          const internships =
+            response?.data?.internships ||
+            response?.data ||
+            response?.internships ||
+            [];
+
+          if (mounted) {
+            if (
+              Array.isArray(internships) &&
+              internships.length > 0
+            ) {
+              setItems(internships);
+            } else {
+              setItems(mockData.internships);
+              setUsingDemoData(true);
+            }
           }
         }
       } catch (error) {
+        console.error(
+          `Placement ${active} error:`,
+          error
+        );
+
         if (mounted) {
           setItems(mockData[active]);
           setUsingDemoData(true);
@@ -207,18 +274,30 @@ export default function Placement() {
     };
   }, [active]);
 
-  const filteredItems = items.filter((item) => {
-    const text = `
-      ${item.title || ""}
-      ${item.name || ""}
-      ${item.company || ""}
-      ${item.industry || ""}
-      ${item.location || ""}
-      ${item.skills?.join?.(" ") || ""}
-    `.toLowerCase();
+  const filteredItems = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-    return text.includes(search.toLowerCase());
-  });
+    if (!query) {
+      return items;
+    }
+
+    return items.filter((item) => {
+      const text = `
+        ${item.title || ""}
+        ${item.name || ""}
+        ${item.company || ""}
+        ${item.company_name || ""}
+        ${item.industry || ""}
+        ${item.location || ""}
+        ${Array.isArray(item.skills)
+          ? item.skills.join(" ")
+          : item.skills_required || ""}
+        ${item.description || ""}
+      `.toLowerCase();
+
+      return text.includes(query);
+    });
+  }, [items, search]);
 
   const uploadResume = async (event) => {
     const file = event.target.files?.[0];
@@ -229,11 +308,13 @@ export default function Placement() {
 
     if (file.type !== "application/pdf") {
       toast.error("Please upload your resume as a PDF.");
+      event.target.value = "";
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
       toast.error("Resume must be smaller than 5 MB.");
+      event.target.value = "";
       return;
     }
 
@@ -244,13 +325,29 @@ export default function Placement() {
 
     try {
       await placementService.uploadResume(formData);
+
       toast.success("Resume uploaded successfully");
     } catch (error) {
+      console.error("Resume upload error:", error);
+
       toast.error(
-        "Resume upload failed. Backend connection may not be available yet."
+        "Resume upload endpoint is not available in the current backend yet."
       );
     } finally {
       setUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  const openJob = (item) => {
+    if (item.apply_link) {
+      window.open(
+        item.apply_link,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } else {
+      toast("This job does not have an application link yet.");
     }
   };
 
@@ -303,7 +400,7 @@ export default function Placement() {
         </div>
       </section>
 
-      {/* Resume */}
+      {/* Resume + ATS */}
       <Card>
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-4">
@@ -341,7 +438,9 @@ export default function Placement() {
           <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent-gradient px-4 py-3 text-xs font-semibold text-white transition hover:opacity-90">
             <Upload size={16} />
 
-            {uploading ? "Uploading..." : "Upload Resume"}
+            {uploading
+              ? "Uploading..."
+              : "Upload Resume"}
 
             <input
               type="file"
@@ -354,11 +453,11 @@ export default function Placement() {
         </div>
       </Card>
 
-      {/* Demo data notice */}
+      {/* Demo / pending backend notice */}
       {usingDemoData && (
         <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
-          Placement backend is not connected yet, so demo opportunities
-          are being displayed.
+          This section is currently using frontend demo data because
+          the corresponding backend endpoint is not available yet.
         </div>
       )}
 
@@ -390,11 +489,16 @@ export default function Placement() {
         </div>
 
         <div className="flex w-full items-center gap-2 rounded-xl border border-bg-border bg-bg-card px-3 py-2.5 lg:w-80">
-          <Search size={16} className="shrink-0 text-gray-500" />
+          <Search
+            size={16}
+            className="shrink-0 text-gray-500"
+          />
 
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) =>
+              setSearch(event.target.value)
+            }
             placeholder={`Search ${active}...`}
             className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-gray-600"
           />
@@ -423,7 +527,10 @@ export default function Placement() {
 
         <p className="mt-1 text-xs text-gray-500">
           {filteredItems.length} opportunity
-          {filteredItems.length === 1 ? "" : "ies"} available
+          {filteredItems.length === 1
+            ? ""
+            : "ies"}{" "}
+          available
         </p>
       </div>
 
@@ -435,13 +542,13 @@ export default function Placement() {
       ) : filteredItems.length === 0 ? (
         <EmptyState
           title={`No ${active} found`}
-          description="Try another search term or connect the backend to load real placement opportunities."
+          description="Try another search term or check the backend availability."
         />
       ) : active === "companies" ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredItems.map((company, index) => (
             <Card
-              key={company.id || index}
+              key={company.id || company._id || index}
               className="group transition hover:-translate-y-0.5 hover:border-purple-500/30"
             >
               <div className="flex items-start justify-between">
@@ -494,7 +601,7 @@ export default function Placement() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {filteredItems.map((item, index) => (
             <Card
-              key={item.id || index}
+              key={item.id || item._id || index}
               className="group transition hover:border-purple-500/30"
             >
               <div className="flex items-start gap-4">
@@ -510,11 +617,15 @@ export default function Placement() {
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <h3 className="text-base font-semibold text-white">
-                        {item.title || item.name || "Opportunity"}
+                        {item.title ||
+                          item.name ||
+                          "Opportunity"}
                       </h3>
 
                       <p className="mt-1 text-xs font-medium text-violet-400">
-                        {item.company || "Student opportunity"}
+                        {item.company ||
+                          item.company_name ||
+                          "Student opportunity"}
                       </p>
                     </div>
 
@@ -534,10 +645,11 @@ export default function Placement() {
                       </span>
                     )}
 
-                    {item.type && (
+                    {(item.type || item.job_type) && (
                       <span className="flex items-center gap-1.5">
                         <Briefcase size={13} />
-                        {item.type}
+                        {item.type ||
+                          item.job_type}
                       </span>
                     )}
 
@@ -570,21 +682,59 @@ export default function Placement() {
                       </div>
                     )}
 
+                  {item.skills_required &&
+                    !Array.isArray(item.skills) && (
+                      <div className="mt-4">
+                        <p className="text-[10px] uppercase tracking-wide text-gray-600">
+                          Skills required
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-gray-400">
+                          {item.skills_required}
+                        </p>
+                      </div>
+                    )}
+
+                  {item.description && (
+                    <p className="mt-4 text-xs leading-5 text-gray-500">
+                      {item.description}
+                    </p>
+                  )}
+
                   <div className="mt-5 flex flex-col gap-3 border-t border-bg-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-white">
-                        {item.salary || item.stipend || "Opportunity available"}
+                        {item.salary ||
+                          item.stipend ||
+                          item.stipend_salary ||
+                          "Opportunity available"}
                       </p>
 
-                      {item.posted && (
+                      {(
+                        item.posted ||
+                        item.posted_date
+                      ) && (
                         <p className="mt-1 text-[10px] text-gray-600">
-                          Posted {item.posted}
+                          Posted{" "}
+                          {item.posted ||
+                            item.posted_date}
                         </p>
                       )}
                     </div>
 
                     <button
                       type="button"
+                      onClick={() => {
+                        if (
+                          active === "jobs"
+                        ) {
+                          openJob(item);
+                        } else {
+                          toast(
+                            "Internship application endpoint is not available yet."
+                          );
+                        }
+                      }}
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-gradient px-4 py-2.5 text-xs font-semibold text-white transition hover:opacity-90"
                     >
                       View Opportunity

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -9,23 +9,58 @@ import {
   Mail,
   Lock,
   UserRound,
-  LogOut,
-  ChevronRight,
 } from "lucide-react";
 
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
+import { settingsService } from "../services/settingsService";
 
 export default function Settings() {
   const { onMenu } = useOutletContext() || {};
 
   const [settings, setSettings] = useState({
-    dark: true,
-    notifications: true,
-    email: true,
-    placementAlerts: true,
-    learningReminders: true,
+    dark_mode: true,
+    email_notifications: true,
+    push_notifications: true,
   });
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadSettings = async () => {
+      try {
+        const response = await settingsService.getSettings();
+
+        const backendSettings = response?.data;
+
+        if (mounted && backendSettings) {
+          setSettings({
+            dark_mode: backendSettings.dark_mode ?? true,
+            email_notifications:
+              backendSettings.email_notifications ?? true,
+            push_notifications:
+              backendSettings.push_notifications ?? true,
+          });
+        }
+      } catch (error) {
+        console.error("Settings load error:", error);
+        toast.error("Could not load settings");
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadSettings();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const toggle = (key) => {
     setSettings((current) => ({
@@ -34,13 +69,26 @@ export default function Settings() {
     }));
   };
 
-  const saveSettings = () => {
-    localStorage.setItem(
-      "studentos_settings",
-      JSON.stringify(settings)
-    );
+  const saveSettings = async () => {
+    setSaving(true);
 
-    toast.success("Settings saved successfully");
+    try {
+      await settingsService.updateSettings(settings);
+
+      toast.success("Settings saved successfully");
+    } catch (error) {
+      console.error("Settings save error:", error);
+
+      const detail = error?.response?.data?.detail;
+
+      toast.error(
+        typeof detail === "string"
+          ? detail
+          : "Could not save settings"
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const Toggle = ({ enabled, onClick }) => (
@@ -60,9 +108,18 @@ export default function Settings() {
     </button>
   );
 
+  if (loading) {
+    return (
+      <div className="grid min-h-[400px] place-items-center">
+        <div className="text-sm text-gray-500">
+          Loading settings...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Mobile menu */}
       {onMenu && (
         <button
           type="button"
@@ -73,7 +130,6 @@ export default function Settings() {
         </button>
       )}
 
-      {/* Header */}
       <section className="rounded-2xl border border-bg-border bg-bg-card p-6">
         <p className="text-sm font-medium text-violet-400">
           StudentOS Settings
@@ -84,13 +140,11 @@ export default function Settings() {
         </h1>
 
         <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-400">
-          Manage your appearance, notifications and account preferences.
+          Manage your appearance and notification preferences.
         </p>
       </section>
 
-      {/* Settings grid */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* Appearance */}
         <Card>
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-500/10 text-violet-400">
@@ -115,18 +169,17 @@ export default function Settings() {
               </p>
 
               <p className="mt-1 text-[11px] text-gray-600">
-                Use the SIH StudentOS dashboard theme.
+                Use the StudentOS dark dashboard theme.
               </p>
             </div>
 
             <Toggle
-              enabled={settings.dark}
-              onClick={() => toggle("dark")}
+              enabled={settings.dark_mode}
+              onClick={() => toggle("dark_mode")}
             />
           </div>
         </Card>
 
-        {/* Notifications */}
         <Card>
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-500/10 text-blue-400">
@@ -157,8 +210,10 @@ export default function Settings() {
               </div>
 
               <Toggle
-                enabled={settings.notifications}
-                onClick={() => toggle("notifications")}
+                enabled={settings.push_notifications}
+                onClick={() =>
+                  toggle("push_notifications")
+                }
               />
             </div>
 
@@ -174,69 +229,15 @@ export default function Settings() {
               </div>
 
               <Toggle
-                enabled={settings.email}
-                onClick={() => toggle("email")}
+                enabled={settings.email_notifications}
+                onClick={() =>
+                  toggle("email_notifications")
+                }
               />
             </div>
           </div>
         </Card>
 
-        {/* Placement notifications */}
-        <Card>
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-500/10 text-emerald-400">
-              <Mail size={19} />
-            </div>
-
-            <div>
-              <h2 className="text-sm font-semibold text-white">
-                Career Alerts
-              </h2>
-
-              <p className="mt-1 text-xs text-gray-500">
-                Stay informed about placement opportunities.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            <div className="flex items-center justify-between rounded-xl border border-bg-border bg-bg-hover p-4">
-              <div>
-                <p className="text-sm font-medium text-white">
-                  Placement alerts
-                </p>
-
-                <p className="mt-1 text-[11px] text-gray-600">
-                  Get notified about relevant jobs and internships.
-                </p>
-              </div>
-
-              <Toggle
-                enabled={settings.placementAlerts}
-                onClick={() => toggle("placementAlerts")}
-              />
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl border border-bg-border bg-bg-hover p-4">
-              <div>
-                <p className="text-sm font-medium text-white">
-                  Learning reminders
-                </p>
-
-                <p className="mt-1 text-[11px] text-gray-600">
-                  Receive reminders to continue your learning goals.
-                </p>
-              </div>
-
-              <Toggle
-                enabled={settings.learningReminders}
-                onClick={() => toggle("learningReminders")}
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Security */}
         <Card>
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-orange-500/10 text-orange-400">
@@ -254,98 +255,52 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="mt-5 space-y-2">
-            <button
-              type="button"
-              onClick={() =>
-                toast("Password management will be connected to the backend.")
-              }
-              className="flex w-full items-center justify-between rounded-xl border border-bg-border bg-bg-hover p-4 text-left transition hover:border-orange-500/20"
-            >
-              <div className="flex items-center gap-3">
-                <Lock size={16} className="text-gray-500" />
+          <div className="mt-5 flex items-center gap-3 rounded-xl border border-bg-border bg-bg-hover p-4">
+            <Lock size={16} className="text-gray-500" />
 
-                <div>
-                  <p className="text-sm font-medium text-gray-200">
-                    Change password
-                  </p>
+            <div>
+              <p className="text-sm font-medium text-gray-200">
+                Authentication
+              </p>
 
-                  <p className="mt-1 text-[11px] text-gray-600">
-                    Update your account password.
-                  </p>
-                </div>
-              </div>
-
-              <ChevronRight
-                size={16}
-                className="text-gray-600"
-              />
-            </button>
-
-            <div className="flex items-center gap-3 rounded-xl border border-bg-border bg-bg-hover p-4">
-              <UserRound size={16} className="text-gray-500" />
-
-              <div>
-                <p className="text-sm font-medium text-gray-200">
-                  Authentication
-                </p>
-
-                <p className="mt-1 text-[11px] text-gray-600">
-                  Authentication will use JWT through the backend API.
-                </p>
-              </div>
+              <p className="mt-1 text-[11px] text-gray-600">
+                Authentication is handled by the backend API.
+              </p>
             </div>
+          </div>
+        </Card>
+
+        <Card>
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-gray-500/10 text-gray-400">
+              <UserRound size={19} />
+            </div>
+
+            <div>
+              <h2 className="text-sm font-semibold text-white">
+                Account
+              </h2>
+
+              <p className="mt-1 text-xs text-gray-500">
+                Your StudentOS account preferences.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 flex items-center gap-3 rounded-xl border border-bg-border bg-bg-hover p-4">
+            <Mail size={16} className="text-gray-500" />
+
+            <p className="text-xs text-gray-400">
+              Settings are synchronized with the StudentOS backend.
+            </p>
           </div>
         </Card>
       </div>
 
-      {/* Account */}
-      <Card>
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-gray-500/10 text-gray-400">
-            <UserRound size={19} />
-          </div>
-
-          <div>
-            <h2 className="text-sm font-semibold text-white">
-              Account
-            </h2>
-
-            <p className="mt-1 text-xs text-gray-500">
-              Manage your StudentOS account.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-gray-300">
-              Student account
-            </p>
-
-            <p className="mt-1 text-xs text-gray-600">
-              Your account preferences are stored locally for now.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              toast("Logout will be connected to the authentication backend.")
-            }
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-2.5 text-xs font-semibold text-red-400 transition hover:bg-red-500/10"
-          >
-            <LogOut size={15} />
-            Log out
-          </button>
-        </div>
-      </Card>
-
-      {/* Save button */}
       <div className="flex justify-end">
-        <Button onClick={saveSettings}>
+        <Button onClick={saveSettings} disabled={saving}>
           <Save size={15} />
-          Save preferences
+          {saving ? "Saving..." : "Save preferences"}
         </Button>
       </div>
     </div>

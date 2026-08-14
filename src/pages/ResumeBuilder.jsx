@@ -1,75 +1,129 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { FileText, Download, Sparkles } from "lucide-react";
+import { FileText, Download, Save } from "lucide-react";
 import toast from "react-hot-toast";
 
 import Topbar from "../components/common/Topbar";
 import Card from "../components/common/Card";
 import Input from "../components/common/Input";
 import Button from "../components/common/Button";
-import { aiService } from "../services/aiService";
+import { resumeService } from "../services/resumeService";
 
 export default function ResumeBuilder() {
   const { onMenu } = useOutletContext() || {};
 
   const [data, setData] = useState({
-    name: "Nadz",
-    title: "Computer Science Student",
-    email: "student@example.com",
-    summary:
-      "Motivated student building full-stack applications and learning modern software engineering.",
-    skills:
-      "React, JavaScript, Python, FastAPI, MongoDB",
-    experience:
-      "StudentOS — Frontend Developer",
+    full_name: "",
+    email: "",
+    phone: "",
+    education: "",
+    skills: "",
+    experience: "Fresher",
   });
 
-  const [review, setReview] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const updateField = (key, value) => {
-    setData((prev) => ({
-      ...prev,
-      [key]: value,
+  useEffect(() => {
+    let mounted = true;
+
+    const loadResume = async () => {
+      try {
+        const response = await resumeService.getResume();
+        const savedResume = response?.data;
+
+        if (
+          mounted &&
+          savedResume &&
+          !savedResume.message
+        ) {
+          setData((current) => ({
+            ...current,
+            ...savedResume,
+          }));
+        }
+      } catch (error) {
+        console.error("Resume load error:", error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadResume();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const updateField = (field, value) => {
+    setData((current) => ({
+      ...current,
+      [field]: value,
     }));
   };
 
-  const reviewResume = async () => {
-    setLoading(true);
+  const saveResume = async () => {
+    if (!data.full_name.trim()) {
+      toast.error("Full name is required.");
+      return;
+    }
+
+    if (!data.email.trim()) {
+      toast.error("Email is required.");
+      return;
+    }
+
+    if (!data.phone.trim()) {
+      toast.error("Phone number is required.");
+      return;
+    }
+
+    if (!data.education.trim()) {
+      toast.error("Education is required.");
+      return;
+    }
+
+    if (!data.skills.trim()) {
+      toast.error("Skills are required.");
+      return;
+    }
+
+    setSaving(true);
 
     try {
-      const formData = new FormData();
-
-      formData.append("name", data.name);
-      formData.append("title", data.title);
-      formData.append("email", data.email);
-      formData.append("summary", data.summary);
-      formData.append("skills", data.skills);
-      formData.append("experience", data.experience);
-
-      const response = await aiService.reviewResume(formData);
-
-      setReview(
-        response.data?.reply ||
-          response.data?.message ||
-          "Demo ATS review: strengthen quantified impact and keep skills aligned with the job description."
-      );
+      await resumeService.saveResume(data);
+      toast.success("Resume saved successfully.");
     } catch (error) {
-      setReview(
-        "Demo ATS review: strengthen quantified impact, use measurable achievements, and keep your skills aligned with the target job description."
-      );
+      console.error("Resume save error:", error);
+
+      const detail = error?.response?.data?.detail;
 
       toast.error(
-        "Live AI review unavailable. Showing demo feedback."
+        typeof detail === "string"
+          ? detail
+          : "Could not save resume."
       );
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   const exportResume = () => {
     window.print();
   };
+
+  if (loading) {
+    return (
+      <div className="grid min-h-[400px] place-items-center">
+        <div className="text-sm text-gray-500">
+          Loading resume...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -93,59 +147,72 @@ export default function ResumeBuilder() {
               </h2>
 
               <p className="text-xs text-gray-500">
-                Keep the content concise and measurable.
+                Enter the information used by your StudentOS resume.
               </p>
             </div>
           </div>
 
           <div className="grid gap-4">
             <Input
-              label="Name"
-              value={data.name}
-              onChange={(e) =>
-                updateField("name", e.target.value)
+              label="Full Name"
+              value={data.full_name}
+              onChange={(event) =>
+                updateField(
+                  "full_name",
+                  event.target.value
+                )
               }
-            />
-
-            <Input
-              label="Target title"
-              value={data.title}
-              onChange={(e) =>
-                updateField("title", e.target.value)
-              }
+              placeholder="Your full name"
             />
 
             <Input
               label="Email"
               type="email"
               value={data.email}
-              onChange={(e) =>
-                updateField("email", e.target.value)
+              onChange={(event) =>
+                updateField(
+                  "email",
+                  event.target.value
+                )
               }
+              placeholder="you@example.com"
+            />
+
+            <Input
+              label="Phone"
+              value={data.phone}
+              onChange={(event) =>
+                updateField(
+                  "phone",
+                  event.target.value
+                )
+              }
+              placeholder="9876543210"
+            />
+
+            <Input
+              label="Education"
+              value={data.education}
+              onChange={(event) =>
+                updateField(
+                  "education",
+                  event.target.value
+                )
+              }
+              placeholder="B.Tech Computer Science"
             />
 
             <Input
               label="Skills"
               value={data.skills}
-              onChange={(e) =>
-                updateField("skills", e.target.value)
+              onChange={(event) =>
+                updateField(
+                  "skills",
+                  event.target.value
+                )
               }
+              placeholder="Java, Spring Boot, React, SQL"
             />
-
-            <div>
-              <label className="text-xs font-medium text-gray-400">
-                Summary
-              </label>
-
-              <textarea
-                value={data.summary}
-                onChange={(e) =>
-                  updateField("summary", e.target.value)
-                }
-                rows={4}
-                className="mt-1.5 w-full rounded-xl border border-bg-border bg-bg-hover p-3 text-sm text-white outline-none focus:border-accent"
-              />
-            </div>
 
             <div>
               <label className="text-xs font-medium text-gray-400">
@@ -154,30 +221,33 @@ export default function ResumeBuilder() {
 
               <textarea
                 value={data.experience}
-                onChange={(e) =>
-                  updateField("experience", e.target.value)
+                onChange={(event) =>
+                  updateField(
+                    "experience",
+                    event.target.value
+                  )
                 }
-                rows={4}
-                className="mt-1.5 w-full rounded-xl border border-bg-border bg-bg-hover p-3 text-sm text-white outline-none focus:border-accent"
+                rows={5}
+                placeholder="Fresher or describe your experience..."
+                className="mt-1.5 w-full resize-none rounded-xl border border-bg-border bg-bg-hover p-3 text-sm leading-6 text-white outline-none placeholder:text-gray-600 focus:border-accent"
               />
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button onClick={exportResume}>
-                <Download size={15} />
-                Export / Print
+              <Button
+                onClick={saveResume}
+                disabled={saving}
+              >
+                <Save size={15} />
+                {saving ? "Saving..." : "Save Resume"}
               </Button>
 
               <Button
                 variant="secondary"
-                onClick={reviewResume}
-                disabled={loading}
+                onClick={exportResume}
               >
-                <Sparkles size={15} />
-
-                {loading
-                  ? "Reviewing..."
-                  : "AI Review"}
+                <Download size={15} />
+                Export / Print
               </Button>
             </div>
           </div>
@@ -187,25 +257,29 @@ export default function ResumeBuilder() {
         <Card className="bg-white text-gray-900">
           <div className="border-b border-gray-200 pb-4">
             <h1 className="text-2xl font-bold">
-              {data.name}
+              {data.full_name || "Your Name"}
             </h1>
 
             <p className="mt-1 text-sm text-gray-600">
-              {data.title}
+              {data.education || "Education"}
             </p>
 
             <p className="mt-1 text-xs text-gray-500">
-              {data.email}
+              {data.email || "email@example.com"}
+              {data.phone
+                ? ` • ${data.phone}`
+                : ""}
             </p>
           </div>
 
           <section className="mt-5">
             <h3 className="text-xs font-bold uppercase tracking-wider text-violet-600">
-              Summary
+              Education
             </h3>
 
             <p className="mt-2 text-sm leading-6 text-gray-700">
-              {data.summary}
+              {data.education ||
+                "Add your education details."}
             </p>
           </section>
 
@@ -215,7 +289,7 @@ export default function ResumeBuilder() {
             </h3>
 
             <p className="mt-2 text-sm leading-6 text-gray-700">
-              {data.skills}
+              {data.skills || "Add your skills."}
             </p>
           </section>
 
@@ -225,28 +299,9 @@ export default function ResumeBuilder() {
             </h3>
 
             <p className="mt-2 text-sm leading-6 text-gray-700">
-              {data.experience}
+              {data.experience || "Fresher"}
             </p>
           </section>
-
-          {review && (
-            <section className="mt-6 rounded-xl border border-violet-200 bg-violet-50 p-4">
-              <div className="flex items-center gap-2">
-                <Sparkles
-                  size={16}
-                  className="text-violet-600"
-                />
-
-                <h3 className="font-bold text-violet-700">
-                  AI Resume Review
-                </h3>
-              </div>
-
-              <p className="mt-2 text-sm leading-6 text-gray-700">
-                {review}
-              </p>
-            </section>
-          )}
         </Card>
       </div>
     </div>

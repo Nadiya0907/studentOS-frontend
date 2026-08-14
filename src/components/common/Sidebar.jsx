@@ -8,6 +8,7 @@ import {
   User,
   Settings,
   FileText,
+  Bell,
 } from "lucide-react";
 
 const links = [
@@ -45,6 +46,11 @@ const links = [
     to: "/profile",
     label: "Profile",
     icon: User,
+  },
+  {
+    to: "/notifications",
+    label: "Notifications",
+    icon: Bell,
   },
   {
     to: "/settings",

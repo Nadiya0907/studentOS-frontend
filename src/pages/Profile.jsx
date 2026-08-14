@@ -14,6 +14,8 @@ import {
   Code2,
   FileText,
   CheckCircle2,
+  Phone,
+  Hash,
 } from "lucide-react";
 
 import Card from "../components/common/Card";
@@ -21,12 +23,17 @@ import Input from "../components/common/Input";
 import Button from "../components/common/Button";
 import Spinner from "../components/common/Spinner";
 import { profileService } from "../services/profileService";
+import { useAuth } from "../context/AuthContext";
 
 const demoProfile = {
+  full_name: "Nadz",
   name: "Nadz",
   email: "student@college.edu",
+  roll_number: "CS-101",
+  department: "Computer Science",
+  semester: 6,
+  phone: "",
   college: "Your College",
-  semester: "6",
   bio: "Computer Science student interested in software development, AI and building real-world applications.",
   skills: [
     "Java",
@@ -40,6 +47,7 @@ const demoProfile = {
 
 export default function Profile() {
   const { onMenu } = useOutletContext() || {};
+  const { user } = useAuth();
 
   const {
     register,
@@ -53,24 +61,67 @@ export default function Profile() {
   const [usingDemoData, setUsingDemoData] = useState(false);
   const [newSkill, setNewSkill] = useState("");
 
+  const rollNumber =
+    user?.roll_number || "CS-101";
+
   useEffect(() => {
     let mounted = true;
 
     const loadProfile = async () => {
       setLoading(true);
+      setUsingDemoData(false);
 
       try {
-        const response = await profileService.getProfile();
+        const response =
+          await profileService.getProfile();
 
-        const profile = response?.data;
+        const profile =
+          response?.data || response;
 
         if (mounted && profile) {
-          reset(profile);
-          setSkills(profile.skills || []);
-        } else {
-          throw new Error("Profile not available");
+          reset({
+            ...profile,
+            full_name:
+              profile.full_name ||
+              profile.name ||
+              user?.name ||
+              "",
+            name:
+              profile.name ||
+              profile.full_name ||
+              user?.name ||
+              "",
+            email:
+              profile.email ||
+              user?.email ||
+              "",
+            roll_number:
+              profile.roll_number ||
+              rollNumber,
+            department:
+              profile.department || "",
+            semester:
+              profile.semester || "",
+            phone:
+              profile.phone || "",
+            college:
+              profile.college || "",
+            bio:
+              profile.bio || "",
+          });
+
+          setSkills(
+            Array.isArray(profile.skills)
+              ? profile.skills
+              : []
+          );
         }
       } catch (error) {
+        console.error(
+          "Profile load error:",
+          error
+        );
+
         if (mounted) {
           reset(demoProfile);
           setSkills(demoProfile.skills);
@@ -88,7 +139,7 @@ export default function Profile() {
     return () => {
       mounted = false;
     };
-  }, [reset]);
+  }, [reset, rollNumber, user?.email, user?.name]);
 
   const addSkill = () => {
     const skill = newSkill.trim();
@@ -100,40 +151,135 @@ export default function Profile() {
     if (
       skills.some(
         (existingSkill) =>
-          existingSkill.toLowerCase() === skill.toLowerCase()
+          existingSkill.toLowerCase() ===
+          skill.toLowerCase()
       )
     ) {
       toast.error("Skill already added.");
       return;
     }
 
-    setSkills((current) => [...current, skill]);
+    setSkills((current) => [
+      ...current,
+      skill,
+    ]);
+
     setNewSkill("");
   };
 
   const removeSkill = (skillToRemove) => {
     setSkills((current) =>
-      current.filter((skill) => skill !== skillToRemove)
+      current.filter(
+        (skill) => skill !== skillToRemove
+      )
     );
   };
 
-  const submit = async (data) => {
+  const submit = async (formData) => {
     setSaving(true);
 
-    try {
-      await profileService.updateProfile({
-        ...data,
-        skills,
-      });
+    const backendData = {
+      roll_number:
+        formData.roll_number?.trim() ||
+        rollNumber,
 
-      toast.success("Profile updated successfully");
-      setUsingDemoData(false);
-    } catch (error) {
-      toast.error(
-        "Profile could not be saved. Backend may not be connected yet."
+      department:
+        formData.department?.trim() || null,
+
+      semester:
+        formData.semester !== ""
+          ? Number(formData.semester)
+          : null,
+
+      phone:
+        formData.phone?.trim() || null,
+    };
+
+    try {
+      await profileService.updateProfile(
+        backendData,
+        rollNumber
       );
+
+      toast.success(
+        "Profile updated successfully"
+      );
+
+      setUsingDemoData(false);
+
+      /*
+       * The backend currently supports only:
+       * roll_number, department, semester, phone
+       *
+       * Other frontend-only fields are intentionally
+       * preserved for future backend integration.
+       */
+    } catch (error) {
+      console.error(
+        "Profile update error:",
+        error
+      );
+
+      const detail =
+        error?.response?.data?.detail;
+
+      let message =
+        "Profile could not be saved.";
+
+      if (Array.isArray(detail)) {
+        message = detail
+          .map((item) => item.msg)
+          .join(", ");
+      } else if (
+        typeof detail === "string"
+      ) {
+        message = detail;
+      }
+
+      toast.error(message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const uploadPhoto = async (event) => {
+    const file =
+      event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error(
+        "Please select an image file."
+      );
+      event.target.value = "";
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      await profileService.uploadPhoto(
+        formData
+      );
+
+      toast.success(
+        "Profile photo uploaded successfully"
+      );
+    } catch (error) {
+      console.error(
+        "Photo upload error:",
+        error
+      );
+
+      toast.error(
+        "Profile photo upload failed."
+      );
+    } finally {
+      event.target.value = "";
     }
   };
 
@@ -177,8 +323,9 @@ export default function Profile() {
       {/* Demo notice */}
       {usingDemoData && (
         <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
-          Profile backend is not connected yet, so demo profile
-          information is being displayed.
+          Some profile fields are currently frontend-only because
+          the backend profile schema supports only selected academic
+          fields.
         </div>
       )}
 
@@ -188,22 +335,29 @@ export default function Profile() {
           <div className="flex flex-col items-center text-center">
             <div className="relative">
               <div className="grid h-28 w-28 place-items-center rounded-3xl bg-accent-gradient text-4xl font-black text-white shadow-glow">
-                N
+                {(user?.name ||
+                  demoProfile.name ||
+                  "N")
+                  .charAt(0)
+                  .toUpperCase()}
               </div>
 
-              <button
-                type="button"
-                className="absolute -bottom-2 -right-2 grid h-9 w-9 place-items-center rounded-xl border border-bg-border bg-bg-card text-gray-300 shadow-lg transition hover:text-white"
-                onClick={() =>
-                  toast("Profile photo upload will be connected later.")
-                }
-              >
+              <label className="absolute -bottom-2 -right-2 grid h-9 w-9 cursor-pointer place-items-center rounded-xl border border-bg-border bg-bg-card text-gray-300 shadow-lg transition hover:text-white">
                 <Camera size={16} />
-              </button>
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={uploadPhoto}
+                />
+              </label>
             </div>
 
             <h2 className="mt-5 text-lg font-bold text-white">
-              Student Profile
+              {user?.name ||
+                demoProfile.name ||
+                "Student Profile"}
             </h2>
 
             <p className="mt-1 text-xs text-gray-500">
@@ -238,10 +392,25 @@ export default function Profile() {
           {/* Quick information */}
           <div className="mt-5 space-y-3">
             <div className="flex items-center gap-3">
-              <Mail size={15} className="text-gray-500" />
+              <Mail
+                size={15}
+                className="text-gray-500"
+              />
 
               <span className="text-xs text-gray-400">
-                Student account
+                {user?.email ||
+                  demoProfile.email}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Hash
+                size={15}
+                className="text-gray-500"
+              />
+
+              <span className="text-xs text-gray-400">
+                Roll No: {rollNumber}
               </span>
             </div>
 
@@ -257,7 +426,10 @@ export default function Profile() {
             </div>
 
             <div className="flex items-center gap-3">
-              <Code2 size={15} className="text-gray-500" />
+              <Code2
+                size={15}
+                className="text-gray-500"
+              />
 
               <span className="text-xs text-gray-400">
                 Technical skills
@@ -274,7 +446,7 @@ export default function Profile() {
             </h2>
 
             <p className="mt-1 text-xs text-gray-500">
-              Update the information used across your StudentOS profile.
+              Update the information supported by the StudentOS backend.
             </p>
           </div>
 
@@ -303,16 +475,64 @@ export default function Profile() {
                 />
 
                 <Input
-                  label="College"
-                  placeholder="Your college name"
-                  {...register("college")}
+                  label="Roll Number"
+                  placeholder="CS-101"
+                  {...register(
+                    "roll_number"
+                  )}
+                />
+
+                <Input
+                  label="Phone"
+                  placeholder="9876543210"
+                  {...register("phone")}
+                />
+
+                <Input
+                  label="Department"
+                  placeholder="Computer Science"
+                  {...register(
+                    "department"
+                  )}
                 />
 
                 <Input
                   label="Semester"
+                  type="number"
+                  min="1"
+                  max="12"
                   placeholder="6"
                   {...register("semester")}
                 />
+
+                <Input
+                  label="College"
+                  placeholder="Your college name"
+                  {...register("college")}
+                />
+              </div>
+            </div>
+
+            {/* Backend note */}
+            <div className="rounded-xl border border-blue-500/10 bg-blue-500/5 p-4">
+              <div className="flex items-start gap-3">
+                <CalendarDays
+                  size={18}
+                  className="mt-0.5 text-blue-400"
+                />
+
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    Backend-supported profile fields
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-gray-500">
+                    Roll number, department, semester and phone are
+                    currently saved to the backend. Name, email, college,
+                    bio and skills remain available in the frontend for
+                    future backend support.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -354,7 +574,9 @@ export default function Profile() {
 
                     <button
                       type="button"
-                      onClick={() => removeSkill(skill)}
+                      onClick={() =>
+                        removeSkill(skill)
+                      }
                       className="text-purple-400 transition hover:text-white"
                     >
                       <X size={13} />
@@ -373,10 +595,14 @@ export default function Profile() {
                 <input
                   value={newSkill}
                   onChange={(event) =>
-                    setNewSkill(event.target.value)
+                    setNewSkill(
+                      event.target.value
+                    )
                   }
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") {
+                    if (
+                      event.key === "Enter"
+                    ) {
                       event.preventDefault();
                       addSkill();
                     }
@@ -410,9 +636,8 @@ export default function Profile() {
                   </p>
 
                   <p className="mt-1 text-xs leading-5 text-gray-500">
-                    Keep your college, semester and technical skills
-                    updated so StudentOS can provide better career
-                    recommendations.
+                    Keep your academic information, technical skills,
+                    resume and profile details updated.
                   </p>
                 </div>
               </div>
@@ -426,7 +651,9 @@ export default function Profile() {
               >
                 <Save size={15} />
 
-                {saving ? "Saving..." : "Save changes"}
+                {saving
+                  ? "Saving..."
+                  : "Save changes"}
               </Button>
             </div>
           </form>
@@ -459,7 +686,7 @@ export default function Profile() {
               </p>
 
               <p className="mt-1 text-sm font-semibold text-white">
-                6th
+                {demoProfile.semester}th
               </p>
             </div>
 
@@ -495,7 +722,9 @@ export default function Profile() {
           <button
             type="button"
             onClick={() =>
-              toast("Resume management is available in Placement.")
+              toast(
+                "Resume management is available in Resume Builder."
+              )
             }
             className="mt-5 w-full rounded-xl border border-bg-border bg-bg-hover px-4 py-3 text-xs font-semibold text-gray-300 transition hover:text-white"
           >

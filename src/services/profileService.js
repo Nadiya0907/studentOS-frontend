@@ -1,40 +1,32 @@
-import api, { USE_MOCK_API } from './api';
-import { mockClient } from './mockClient';
+import api, { USE_MOCK_API } from "./api";
+import { mockClient } from "./mockClient";
+
 export const profileService = {
   getProfile: () =>
     USE_MOCK_API
       ? mockClient.profile()
-      : api.get('/student/me'),
+      : api.get("/student/me"),
 
-  updateProfile: (data) =>
+  updateProfile: (data, rollNumber) =>
     USE_MOCK_API
       ? Promise.resolve({ data })
-      : api.put('/student/me', data),
+      : api.put("/student/me", data, {
+          params: {
+            roll_number: rollNumber,
+          },
+        }),
 
   uploadPhoto: (formData) =>
     USE_MOCK_API
-      ? Promise.resolve({ data: { url: '#' } })
-      : api.post('/upload/image', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
+      ? Promise.resolve({
+          data: {
+            message: "Demo photo upload complete",
+            url: "#",
           },
-        }),
-};
-export const notificationService = {
-  getNotifications: () =>
-    USE_MOCK_API
-      ? mockClient.notifications()
-      : api.get('/notifications'),
-
-  createNotification: (data) =>
-    USE_MOCK_API
-      ? Promise.resolve({ data })
-      : api.post('/notifications', data),
-
-  deleteNotification: (id) =>
-    USE_MOCK_API
-      ? Promise.resolve({ data: { id } })
-      : api.delete('/notifications', {
-          data: { id },
+        })
+      : api.post("/upload/image", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         }),
 };

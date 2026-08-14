@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-
   Send,
   Bot,
   User,
@@ -12,15 +11,16 @@ import {
   Code2,
 } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
+
 import { aiService } from "../services/aiService";
 import { AI_MODULES } from "../constants";
 
 const suggestions = [
   "What should I study this week?",
   "Suggest internships for a React developer",
-  "Review my resume for ATS readiness",
   "Give me a mock HR interview question",
   "Suggest a final-year project architecture",
+  "Explain DBMS normalization in simple words",
 ];
 
 export default function AiAssistant() {
@@ -40,13 +40,6 @@ export default function AiAssistant() {
 
   const endRef = useRef(null);
 
-  /*
-   * Scroll to the latest message.
-   *
-   * IMPORTANT:
-   * Keep this as a block body instead of returning
-   * scrollIntoView() from useEffect.
-   */
   useEffect(() => {
     if (endRef.current) {
       endRef.current.scrollIntoView({
@@ -60,13 +53,17 @@ export default function AiAssistant() {
     switch (id) {
       case "career":
         return <Briefcase size={15} />;
+
       case "english":
         return <MessageCircle size={15} />;
+
       case "project":
         return <Code2 size={15} />;
+
       case "resume":
       case "resume-reviewer":
         return <FileText size={15} />;
+
       default:
         return <Sparkles size={15} />;
     }
@@ -93,9 +90,16 @@ export default function AiAssistant() {
     try {
       let response;
 
-      if (active === "mentor") {
-        response = await aiService.askMentor(message);
-      } else if (active === "career") {
+      /*
+       * Current backend has one real AI endpoint:
+       * POST /ai/chat
+       *
+       * aiService sends the selected module along
+       * with the question so the backend can understand
+       * which StudentOS AI role is being requested.
+       */
+
+      if (active === "career") {
         response = await aiService.askCareer({
           message,
         });
@@ -111,35 +115,52 @@ export default function AiAssistant() {
         active === "resume" ||
         active === "resume-reviewer"
       ) {
-        const formData = new FormData();
-
-        response = await aiService.reviewResume(formData);
+        response = await aiService.reviewResume({
+          name: "",
+          title: "",
+          email: "",
+          summary: "",
+          skills: "",
+          experience: "",
+          question: message,
+        });
       } else {
         response = await aiService.askMentor(message);
       }
 
-      const reply =
-        response?.data?.reply ||
+      const answer =
+        response?.data?.answer ||
+        response?.answer ||
         response?.data?.message ||
-        response?.reply ||
         response?.message ||
-        "Here is your AI response.";
+        "I could not generate a response.";
 
       setMessages((previous) => [
         ...previous,
         {
           role: "ai",
-          text: reply,
+          text: answer,
         },
       ]);
     } catch (error) {
-      console.error("AI Assistant error:", error);
+      console.error(
+        "AI Assistant error:",
+        error
+      );
+
+      const detail =
+        error?.response?.data?.detail;
+
+      const errorMessage =
+        typeof detail === "string"
+          ? detail
+          : "I could not reach the AI service. Please try again.";
 
       setMessages((previous) => [
         ...previous,
         {
           role: "ai",
-          text: "I could not reach the AI service. Please check the backend connection.",
+          text: errorMessage,
         },
       ]);
     } finally {
@@ -148,14 +169,20 @@ export default function AiAssistant() {
   };
 
   const handleKeyDown = (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
       event.preventDefault();
       sendMessage();
     }
   };
 
   const activeModule =
-    AI_MODULES?.find((module) => module.id === active);
+    AI_MODULES?.find(
+      (module) =>
+        module.id === active
+    );
 
   return (
     <div className="space-y-5">
@@ -177,6 +204,7 @@ export default function AiAssistant() {
 
         {onMenu && (
           <button
+            type="button"
             onClick={onMenu}
             className="rounded-lg border border-bg-border bg-bg-hover px-3 py-2 text-sm text-gray-300 md:hidden"
           >
@@ -191,7 +219,9 @@ export default function AiAssistant() {
           <button
             key={module.id}
             type="button"
-            onClick={() => setActive(module.id)}
+            onClick={() =>
+              setActive(module.id)
+            }
             className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition ${
               active === module.id
                 ? "bg-accent-gradient text-white shadow-lg"
@@ -204,7 +234,7 @@ export default function AiAssistant() {
         ))}
       </div>
 
-      {/* Chat container */}
+      {/* Chat */}
       <div className="overflow-hidden rounded-2xl border border-bg-border bg-bg-card">
         {/* Chat header */}
         <div className="flex items-center justify-between border-b border-bg-border px-5 py-4">
@@ -215,11 +245,12 @@ export default function AiAssistant() {
 
             <div>
               <h2 className="text-sm font-semibold text-white">
-                {activeModule?.label || "AI Mentor"}
+                {activeModule?.label ||
+                  "AI Mentor"}
               </h2>
 
               <p className="text-xs text-gray-500">
-                Powered by your StudentOS AI backend
+                Powered by StudentOS AI backend
               </p>
             </div>
           </div>
@@ -232,38 +263,42 @@ export default function AiAssistant() {
 
         {/* Messages */}
         <div className="h-[420px] space-y-4 overflow-y-auto p-5">
-          {messages.map((message, index) => (
-            <div
-              key={`${message.role}-${index}`}
-              className={`flex gap-3 ${
-                message.role === "user"
-                  ? "justify-end"
-                  : "justify-start"
-              }`}
-            >
-              {message.role === "ai" && (
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-purple-500/10 text-purple-400">
-                  <Bot size={16} />
-                </div>
-              )}
-
+          {messages.map(
+            (message, index) => (
               <div
-                className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-6 ${
+                key={`${message.role}-${index}`}
+                className={`flex gap-3 ${
                   message.role === "user"
-                    ? "bg-accent-gradient text-white"
-                    : "bg-bg-hover text-gray-300"
+                    ? "justify-end"
+                    : "justify-start"
                 }`}
               >
-                {message.text}
-              </div>
+                {message.role === "ai" && (
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-purple-500/10 text-purple-400">
+                    <Bot size={16} />
+                  </div>
+                )}
 
-              {message.role === "user" && (
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-bg-hover text-gray-400">
-                  <User size={16} />
+                <div
+                  className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-6 ${
+                    message.role ===
+                    "user"
+                      ? "bg-accent-gradient text-white"
+                      : "bg-bg-hover text-gray-300"
+                  }`}
+                >
+                  {message.text}
                 </div>
-              )}
-            </div>
-          ))}
+
+                {message.role ===
+                  "user" && (
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-bg-hover text-gray-400">
+                    <User size={16} />
+                  </div>
+                )}
+              </div>
+            )
+          )}
 
           {loading && (
             <div className="flex items-center gap-3">
@@ -287,17 +322,23 @@ export default function AiAssistant() {
           </p>
 
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {suggestions.map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                onClick={() => sendMessage(suggestion)}
-                disabled={loading}
-                className="whitespace-nowrap rounded-full border border-bg-border bg-bg-hover px-3 py-2 text-[11px] text-gray-400 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {suggestion}
-              </button>
-            ))}
+            {suggestions.map(
+              (suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() =>
+                    sendMessage(
+                      suggestion
+                    )
+                  }
+                  disabled={loading}
+                  className="whitespace-nowrap rounded-full border border-bg-border bg-bg-hover px-3 py-2 text-[11px] text-gray-400 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {suggestion}
+                </button>
+              )
+            )}
           </div>
         </div>
 
@@ -314,7 +355,11 @@ export default function AiAssistant() {
 
             <input
               value={input}
-              onChange={(event) => setInput(event.target.value)}
+              onChange={(event) =>
+                setInput(
+                  event.target.value
+                )
+              }
               onKeyDown={handleKeyDown}
               disabled={loading}
               placeholder="Ask your AI mentor..."
@@ -323,8 +368,13 @@ export default function AiAssistant() {
 
             <button
               type="button"
-              onClick={() => sendMessage()}
-              disabled={!input.trim() || loading}
+              onClick={() =>
+                sendMessage()
+              }
+              disabled={
+                !input.trim() ||
+                loading
+              }
               className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-gradient text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Send size={17} />

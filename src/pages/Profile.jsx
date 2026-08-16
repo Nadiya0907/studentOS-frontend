@@ -14,7 +14,6 @@ import {
   Code2,
   FileText,
   CheckCircle2,
-  Phone,
   Hash,
 } from "lucide-react";
 
@@ -58,11 +57,19 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [skills, setSkills] = useState([]);
-  const [usingDemoData, setUsingDemoData] = useState(false);
+  const [usingDemoData, setUsingDemoData] =
+    useState(false);
   const [newSkill, setNewSkill] = useState("");
+
+  const [profilePhoto, setProfilePhoto] =
+    useState("");
 
   const rollNumber =
     user?.roll_number || "CS-101";
+
+  // --------------------------------------------------
+  // LOAD PROFILE
+  // --------------------------------------------------
 
   useEffect(() => {
     let mounted = true;
@@ -78,34 +85,65 @@ export default function Profile() {
         const profile =
           response?.data || response;
 
+        // Try every common backend photo field.
+        const backendPhoto =
+          profile?.photo_url ||
+          profile?.profile_photo ||
+          profile?.profile_photo_url ||
+          profile?.image_url ||
+          profile?.avatar_url ||
+          profile?.photo ||
+          profile?.image ||
+          "";
+
+        const savedPhoto =
+          localStorage.getItem(
+            "studentos_profile_photo"
+          ) || "";
+
+        if (mounted) {
+          setProfilePhoto(
+            backendPhoto || savedPhoto
+          );
+        }
+
         if (mounted && profile) {
           reset({
             ...profile,
+
             full_name:
               profile.full_name ||
               profile.name ||
               user?.name ||
               "",
+
             name:
               profile.name ||
               profile.full_name ||
               user?.name ||
               "",
+
             email:
               profile.email ||
               user?.email ||
               "",
+
             roll_number:
               profile.roll_number ||
               rollNumber,
+
             department:
               profile.department || "",
+
             semester:
               profile.semester || "",
+
             phone:
               profile.phone || "",
+
             college:
               profile.college || "",
+
             bio:
               profile.bio || "",
           });
@@ -122,9 +160,17 @@ export default function Profile() {
           error
         );
 
+        const savedPhoto =
+          localStorage.getItem(
+            "studentos_profile_photo"
+          ) || "";
+
         if (mounted) {
           reset(demoProfile);
-          setSkills(demoProfile.skills);
+          setSkills(
+            demoProfile.skills
+          );
+          setProfilePhoto(savedPhoto);
           setUsingDemoData(true);
         }
       } finally {
@@ -139,7 +185,16 @@ export default function Profile() {
     return () => {
       mounted = false;
     };
-  }, [reset, rollNumber, user?.email, user?.name]);
+  }, [
+    reset,
+    rollNumber,
+    user?.email,
+    user?.name,
+  ]);
+
+  // --------------------------------------------------
+  // SKILLS
+  // --------------------------------------------------
 
   const addSkill = () => {
     const skill = newSkill.trim();
@@ -167,13 +222,20 @@ export default function Profile() {
     setNewSkill("");
   };
 
-  const removeSkill = (skillToRemove) => {
+  const removeSkill = (
+    skillToRemove
+  ) => {
     setSkills((current) =>
       current.filter(
-        (skill) => skill !== skillToRemove
+        (skill) =>
+          skill !== skillToRemove
       )
     );
   };
+
+  // --------------------------------------------------
+  // SAVE PROFILE
+  // --------------------------------------------------
 
   const submit = async (formData) => {
     setSaving(true);
@@ -184,7 +246,8 @@ export default function Profile() {
         rollNumber,
 
       department:
-        formData.department?.trim() || null,
+        formData.department?.trim() ||
+        null,
 
       semester:
         formData.semester !== ""
@@ -206,14 +269,6 @@ export default function Profile() {
       );
 
       setUsingDemoData(false);
-
-      /*
-       * The backend currently supports only:
-       * roll_number, department, semester, phone
-       *
-       * Other frontend-only fields are intentionally
-       * preserved for future backend integration.
-       */
     } catch (error) {
       console.error(
         "Profile update error:",
@@ -228,7 +283,11 @@ export default function Profile() {
 
       if (Array.isArray(detail)) {
         message = detail
-          .map((item) => item.msg)
+          .map(
+            (item) =>
+              item?.msg ||
+              "Validation error"
+          )
           .join(", ");
       } else if (
         typeof detail === "string"
@@ -241,6 +300,10 @@ export default function Profile() {
       setSaving(false);
     }
   };
+
+  // --------------------------------------------------
+  // PROFILE PHOTO UPLOAD
+  // --------------------------------------------------
 
   const uploadPhoto = async (event) => {
     const file =
@@ -258,16 +321,91 @@ export default function Profile() {
       return;
     }
 
+    if (
+      file.size >
+      5 * 1024 * 1024
+    ) {
+      toast.error(
+        "Profile photo must be smaller than 5 MB."
+      );
+      event.target.value = "";
+      return;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-      await profileService.uploadPhoto(
-        formData
-      );
+      const response =
+        await profileService.uploadPhoto(
+          formData
+        );
+
+      const data =
+        response?.data || response;
+
+      // Try common URL names returned by file-upload APIs.
+      const uploadedUrl =
+        data?.url ||
+        data?.file_url ||
+        data?.image_url ||
+        data?.photo_url ||
+        data?.profile_photo_url ||
+        data?.secure_url ||
+        data?.image?.url ||
+        data?.file?.url ||
+        "";
+
+      if (uploadedUrl) {
+        setProfilePhoto(uploadedUrl);
+
+        localStorage.setItem(
+          "studentos_profile_photo",
+          uploadedUrl
+        );
+      } else {
+        // Upload succeeded but backend did not return
+        // a usable URL. Refresh profile in case the
+        // backend saves the photo URL there.
+        try {
+          const refreshed =
+            await profileService.getProfile();
+
+          const refreshedProfile =
+            refreshed?.data ||
+            refreshed;
+
+          const refreshedPhoto =
+            refreshedProfile?.photo_url ||
+            refreshedProfile?.profile_photo ||
+            refreshedProfile?.profile_photo_url ||
+            refreshedProfile?.image_url ||
+            refreshedProfile?.avatar_url ||
+            refreshedProfile?.photo ||
+            refreshedProfile?.image ||
+            "";
+
+          if (refreshedPhoto) {
+            setProfilePhoto(
+              refreshedPhoto
+            );
+
+            localStorage.setItem(
+              "studentos_profile_photo",
+              refreshedPhoto
+            );
+          }
+        } catch (refreshError) {
+          console.error(
+            "Profile refresh after photo upload failed:",
+            refreshError
+          );
+        }
+      }
 
       toast.success(
-        "Profile photo uploaded successfully"
+        data?.message ||
+          "Profile photo uploaded successfully"
       );
     } catch (error) {
       console.error(
@@ -275,13 +413,22 @@ export default function Profile() {
         error
       );
 
+      const detail =
+        error?.response?.data?.detail;
+
       toast.error(
-        "Profile photo upload failed."
+        typeof detail === "string"
+          ? detail
+          : "Profile photo upload failed."
       );
     } finally {
       event.target.value = "";
     }
   };
+
+  // --------------------------------------------------
+  // LOADING
+  // --------------------------------------------------
 
   if (loading) {
     return (
@@ -290,6 +437,10 @@ export default function Profile() {
       </div>
     );
   }
+
+  // --------------------------------------------------
+  // UI
+  // --------------------------------------------------
 
   return (
     <div className="space-y-6">
@@ -333,15 +484,36 @@ export default function Profile() {
         {/* Profile card */}
         <Card className="h-fit">
           <div className="flex flex-col items-center text-center">
+            {/* Avatar */}
             <div className="relative">
-              <div className="grid h-28 w-28 place-items-center rounded-3xl bg-accent-gradient text-4xl font-black text-white shadow-glow">
-                {(user?.name ||
-                  demoProfile.name ||
-                  "N")
-                  .charAt(0)
-                  .toUpperCase()}
+              <div className="h-28 w-28 overflow-hidden rounded-3xl bg-accent-gradient text-4xl font-black text-white shadow-glow">
+                {profilePhoto ? (
+                  <img
+                    src={profilePhoto}
+                    alt="Profile"
+                    className="h-full w-full object-cover"
+                    onError={() => {
+                      setProfilePhoto("");
+
+                      localStorage.removeItem(
+                        "studentos_profile_photo"
+                      );
+                    }}
+                  />
+                ) : (
+                  <div className="grid h-full w-full place-items-center">
+                    {(
+                      user?.name ||
+                      demoProfile.name ||
+                      "N"
+                    )
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                )}
               </div>
 
+              {/* Camera button */}
               <label className="absolute -bottom-2 -right-2 grid h-9 w-9 cursor-pointer place-items-center rounded-xl border border-bg-border bg-bg-card text-gray-300 shadow-lg transition hover:text-white">
                 <Camera size={16} />
 
@@ -380,7 +552,9 @@ export default function Profile() {
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-bg-border">
               <div
                 className="h-full rounded-full bg-accent-gradient"
-                style={{ width: "85%" }}
+                style={{
+                  width: "85%",
+                }}
               />
             </div>
 

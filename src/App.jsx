@@ -5,13 +5,21 @@ import Attendance from "./pages/admin/Attendance";
 import FileManagement from "./pages/FileManagement";
 import Companies from "./pages/admin/Companies";
 import Internships from "./pages/admin/Internships";
+import AdminNotifications from "./pages/admin/Notifications";
 export default function App(){return <AuthProvider><Toaster position="top-right" toastOptions={{style:{background:'#151823',color:'#e5e7eb',border:'1px solid #272b39'}}}/><BrowserRouter><Routes><Route path="/" element={<Landing/>}/><Route path="/about" element={<PublicPage type="about"/>}/><Route path="/features" element={<PublicPage type="features"/>}/><Route path="/contact" element={<PublicPage type="contact"/>}/><Route element={<AuthLayout/>}><Route path="/login" element={<Login/>}/><Route path="/signup" element={<Signup/>}/><Route path="/forgot-password" element={<ForgotPassword/>}/>
 <Route path="/reset-password" element={<ResetPassword/>}/>
 <Route path="/verify-email" element={<VerifyEmail/>}/></Route><Route element={<ProtectedRoute><AppLayout/></ProtectedRoute>}><Route path="/dashboard" element={<Dashboard/>}/><Route path="/learning" element={<Learning/>}/><Route path="/placement" element={<Placement/>}/><Route path="/community" element={<Community/>}/><Route path="/ai" element={<AiAssistant/>}/><Route path="/resume-builder" element={<ResumeBuilder/>}/>
 <Route
   path="/files"
   element={<FileManagement />}
-/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<Settings/>}/><Route path="/notifications" element={<Notifications/>}/></Route><Route element={<ProtectedRoute role="admin"><AdminLayout/></ProtectedRoute>}><Route path="/admin" element={<AdminDashboard/>}/><Route path="/admin/users" element={<Users/>}/><Route path="/admin/reports" element={<Reports/>}/><Route path="/admin/analytics" element={<Analytics/>}/><Route path="/admin/feedback" element={<Feedback/>}/><Route path="/admin/attendance" element={<Attendance/>}/>
+/><Route path="/profile" element={<Profile/>}/><Route path="/settings" element={<Settings/>}/><Route path="/notifications" element={<Notifications/>}/></Route><Route element={<ProtectedRoute role="admin"><AdminLayout/></ProtectedRoute>}><Route path="/admin" element={<AdminDashboard/>}/><Route path="/admin/users" element={<Users/>}/><Route path="/admin/reports" element={<Reports/>}/><Route path="/admin/analytics" element={<Analytics/>}/>
+<Route
+  path="/admin/notifications"
+  element={
+    <AdminNotifications />
+  }
+/>
+<Route path="/admin/feedback" element={<Feedback/>}/><Route path="/admin/attendance" element={<Attendance/>}/>
 <Route
   path="/admin/companies"
   element={<Companies />}

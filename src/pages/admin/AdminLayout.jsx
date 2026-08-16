@@ -2,6 +2,7 @@ import {
   NavLink,
   Outlet,
 } from "react-router-dom";
+
 import {
   LayoutDashboard,
   Users,
@@ -11,6 +12,7 @@ import {
   CalendarCheck2,
   Building2,
   BriefcaseBusiness,
+  Bell,
   LogOut,
 } from "lucide-react";
 
@@ -43,11 +45,16 @@ const links = [
     MessageSquare,
   ],
   [
+    "/admin/notifications",
+    "Notifications",
+    Bell,
+  ],
+  [
     "/admin/attendance",
     "Attendance",
     CalendarCheck2,
   ],
-   [
+  [
     "/admin/companies",
     "Companies",
     Building2,
@@ -64,12 +71,17 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-bg text-gray-200 md:flex">
+      {/* Sidebar */}
       <aside className="hidden h-screen w-64 shrink-0 border-r border-bg-border bg-bg-sidebar md:flex md:flex-col">
         {/* Header */}
         <div className="shrink-0 border-b border-bg-border p-5">
           <div className="text-lg font-bold text-white">
             StudentOS Admin
           </div>
+
+          <p className="mt-1 text-xs text-gray-500">
+            Administration Panel
+          </p>
         </div>
 
         {/* Navigation */}

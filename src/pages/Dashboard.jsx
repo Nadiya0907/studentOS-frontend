@@ -21,7 +21,14 @@ import {
   Flame,
   Target,
   CheckCircle2,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Save,
+  RefreshCw,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 import Card from "../components/common/Card";
 import Spinner from "../components/common/Spinner";
@@ -35,6 +42,24 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // --------------------------------------------------
+  // GOALS STATE
+  // --------------------------------------------------
+
+  const [goals, setGoals] = useState([]);
+  const [goalsLoading, setGoalsLoading] = useState(true);
+  const [goalSaving, setGoalSaving] = useState(false);
+  const [goalDeletingId, setGoalDeletingId] = useState(null);
+  const [goalUpdatingId, setGoalUpdatingId] = useState(null);
+
+  const [showGoalForm, setShowGoalForm] = useState(false);
+  const [editingGoalId, setEditingGoalId] = useState(null);
+  const [goalTitle, setGoalTitle] = useState("");
+
+  // --------------------------------------------------
+  // LOAD MAIN DASHBOARD
+  // --------------------------------------------------
 
   useEffect(() => {
     let mounted = true;
@@ -87,6 +112,364 @@ export default function Dashboard() {
     };
   }, [user?.roll_number]);
 
+  // --------------------------------------------------
+  // LOAD GOALS
+  // --------------------------------------------------
+
+  const loadGoals = async () => {
+    setGoalsLoading(true);
+
+    try {
+      const response =
+        await dashboardService.getGoals();
+
+      const rawGoals =
+        response?.data?.goals ||
+        response?.data ||
+        response?.goals ||
+        [];
+
+      const normalizedGoals =
+        Array.isArray(rawGoals)
+          ? rawGoals.map((goal) => ({
+              ...goal,
+              id:
+                goal.id ||
+                goal._id ||
+                goal.goal_id,
+              title:
+                goal.title || "",
+              is_completed:
+                Boolean(
+                  goal.is_completed
+                ),
+            }))
+          : [];
+
+      setGoals(normalizedGoals);
+    } catch (error) {
+      console.error(
+        "Goals load error:",
+        error
+      );
+
+      const detail =
+        error?.response?.data?.detail;
+
+      if (
+        typeof detail === "string"
+      ) {
+        toast.error(detail);
+      } else {
+        toast.error(
+          "Could not load your goals."
+        );
+      }
+
+      setGoals([]);
+    } finally {
+      setGoalsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadGoals();
+  }, []);
+
+  // --------------------------------------------------
+  // GOAL HELPERS
+  // --------------------------------------------------
+
+  const resetGoalForm = () => {
+    setGoalTitle("");
+    setEditingGoalId(null);
+    setShowGoalForm(false);
+  };
+
+  const openAddGoal = () => {
+    setGoalTitle("");
+    setEditingGoalId(null);
+    setShowGoalForm(true);
+  };
+
+  const openEditGoal = (goal) => {
+    setGoalTitle(goal.title || "");
+    setEditingGoalId(goal.id);
+    setShowGoalForm(true);
+  };
+
+  const saveGoal = async () => {
+    const title = goalTitle.trim();
+
+    if (!title) {
+      toast.error(
+        "Goal title is required."
+      );
+      return;
+    }
+
+    setGoalSaving(true);
+
+    try {
+      if (editingGoalId) {
+        const existingGoal =
+          goals.find(
+            (goal) =>
+              goal.id ===
+              editingGoalId
+          );
+
+        const payload = {
+          title,
+          is_completed:
+            Boolean(
+              existingGoal?.is_completed
+            ),
+        };
+
+        const response =
+          await dashboardService.updateGoal(
+            editingGoalId,
+            payload
+          );
+
+        const updatedGoal =
+          response?.data?.goal ||
+          response?.data ||
+          response?.goal;
+
+        setGoals((current) =>
+          current.map((goal) =>
+            goal.id === editingGoalId
+              ? {
+                  ...goal,
+                  ...(updatedGoal || {}),
+                  title,
+                  is_completed:
+                    payload.is_completed,
+                }
+              : goal
+          )
+        );
+
+        toast.success(
+          response?.data?.message ||
+            "Goal updated successfully."
+        );
+      } else {
+        const payload = {
+          title,
+          is_completed: false,
+        };
+
+        const response =
+          await dashboardService.createGoal(
+            payload
+          );
+
+        const createdGoal =
+          response?.data?.goal ||
+          response?.data ||
+          response?.goal;
+
+        if (createdGoal) {
+          setGoals((current) => [
+            {
+              ...createdGoal,
+              id:
+                createdGoal.id ||
+                createdGoal._id ||
+                createdGoal.goal_id,
+              title:
+                createdGoal.title ||
+                title,
+              is_completed:
+                Boolean(
+                  createdGoal.is_completed
+                ),
+            },
+            ...current,
+          ]);
+        } else {
+          await loadGoals();
+        }
+
+        toast.success(
+          response?.data?.message ||
+            "Goal added successfully."
+        );
+      }
+
+      resetGoalForm();
+    } catch (error) {
+      console.error(
+        "Save goal error:",
+        error
+      );
+
+      const detail =
+        error?.response?.data?.detail;
+
+      let message =
+        editingGoalId
+          ? "Could not update goal."
+          : "Could not add goal.";
+
+      if (
+        Array.isArray(detail)
+      ) {
+        message = detail
+          .map(
+            (item) =>
+              item?.msg ||
+              "Validation error"
+          )
+          .join(", ");
+      } else if (
+        typeof detail === "string"
+      ) {
+        message = detail;
+      }
+
+      toast.error(message);
+    } finally {
+      setGoalSaving(false);
+    }
+  };
+
+  const toggleGoal = async (goal) => {
+    if (!goal?.id) {
+      toast.error(
+        "Goal ID is missing."
+      );
+      return;
+    }
+
+    const newCompleted =
+      !goal.is_completed;
+
+    setGoalUpdatingId(goal.id);
+
+    try {
+      const payload = {
+        title: goal.title,
+        is_completed:
+          newCompleted,
+      };
+
+      const response =
+        await dashboardService.updateGoal(
+          goal.id,
+          payload
+        );
+
+      const updatedGoal =
+        response?.data?.goal ||
+        response?.data ||
+        response?.goal;
+
+      setGoals((current) =>
+        current.map((item) =>
+          item.id === goal.id
+            ? {
+                ...item,
+                ...(updatedGoal || {}),
+                title:
+                  updatedGoal?.title ||
+                  item.title,
+                is_completed:
+                  Boolean(
+                    updatedGoal?.is_completed ??
+                      newCompleted
+                  ),
+              }
+            : item
+        )
+      );
+
+      toast.success(
+        newCompleted
+          ? "Goal completed."
+          : "Goal marked incomplete."
+      );
+    } catch (error) {
+      console.error(
+        "Toggle goal error:",
+        error
+      );
+
+      const detail =
+        error?.response?.data?.detail;
+
+      toast.error(
+        typeof detail === "string"
+          ? detail
+          : "Could not update goal."
+      );
+    } finally {
+      setGoalUpdatingId(null);
+    }
+  };
+
+  const deleteGoal = async (goal) => {
+    if (!goal?.id) {
+      toast.error(
+        "Goal ID is missing."
+      );
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Delete "${goal.title}"?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setGoalDeletingId(goal.id);
+
+    try {
+      const response =
+        await dashboardService.deleteGoal(
+          goal.id
+        );
+
+      setGoals((current) =>
+        current.filter(
+          (item) =>
+            item.id !== goal.id
+        )
+      );
+
+      toast.success(
+        response?.data?.message ||
+          "Goal deleted successfully."
+      );
+    } catch (error) {
+      console.error(
+        "Delete goal error:",
+        error
+      );
+
+      const detail =
+        error?.response?.data?.detail;
+
+      toast.error(
+        typeof detail === "string"
+          ? detail
+          : "Could not delete goal."
+      );
+    } finally {
+      setGoalDeletingId(null);
+    }
+  };
+
+  // --------------------------------------------------
+  // DASHBOARD DATA
+  // --------------------------------------------------
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -137,78 +520,39 @@ export default function Dashboard() {
   const semester =
     studentInfo.semester || "N/A";
 
-  /*
-   * ----------------------------------------------------
-   * TEMPORARY FRONTEND VALUES
-   * ----------------------------------------------------
-   *
-   * The current backend does not yet provide:
-   * GET /cgpa
-   * GET /streak
-   * GET /goals
-   *
-   * These values are kept here so the Dashboard UI
-   * already contains the roadmap features.
-   *
-   * Later we will replace these with real API data.
-   */
+  // --------------------------------------------------
+  // TEMPORARY CGPA / STREAK
+  // --------------------------------------------------
 
   const cgpa = 8.6;
-
   const streak = 12;
 
-  const goals = [
-    {
-      id: 1,
-      title: "Complete DBMS notes",
-      done: true,
-    },
-    {
-      id: 2,
-      title: "Solve 10 DSA problems",
-      done: true,
-    },
-    {
-      id: 3,
-      title: "Practice SQL queries",
-      done: true,
-    },
-    {
-      id: 4,
-      title: "Apply to 2 internships",
-      done: true,
-    },
-    {
-      id: 5,
-      title: "Revise Operating Systems",
-      done: false,
-    },
-    {
-      id: 6,
-      title: "Watch React lecture",
-      done: false,
-    },
-  ];
+  // --------------------------------------------------
+  // GOAL STATS
+  // --------------------------------------------------
 
   const goalsCompleted =
     goals.filter(
-      (goal) => goal.done
+      (goal) =>
+        Boolean(goal.is_completed)
     ).length;
 
-  const goalsTotal = goals.length;
+  const goalsTotal =
+    goals.length;
 
   const goalPercentage =
     goalsTotal > 0
       ? Math.round(
-          (goalsCompleted / goalsTotal) *
+          (goalsCompleted /
+            goalsTotal) *
             100
         )
       : 0;
 
-  /*
-   * Existing graph preserved.
-   * Later it can be replaced by a real progress API.
-   */
+  // --------------------------------------------------
+  // GRAPH
+  // --------------------------------------------------
+
   const progressData = [
     { day: "Mon", value: 40 },
     { day: "Tue", value: 55 },
@@ -225,10 +569,10 @@ export default function Dashboard() {
       value: `${attendancePercentage}%`,
       icon: CalendarCheck2,
       iconClass: "text-cyan-300",
-      progress: attendancePercentage,
+      progress:
+        attendancePercentage,
       description: `${totalClasses} classes recorded`,
     },
-
     {
       label: "CGPA",
       value: cgpa.toFixed(1),
@@ -238,7 +582,6 @@ export default function Dashboard() {
       description:
         "Current academic score",
     },
-
     {
       label: "Streak",
       value: `${streak} days`,
@@ -248,7 +591,6 @@ export default function Dashboard() {
       description:
         "Keep the momentum",
     },
-
     {
       label: "Daily Goals",
       value: `${goalsCompleted}/${goalsTotal}`,
@@ -471,10 +813,11 @@ export default function Dashboard() {
         </Card>
       </section>
 
-      {/* Goals */}
+      {/* Goals + Academic Snapshot */}
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {/* Goals */}
         <Card>
-          <div className="mb-5 flex items-start justify-between">
+          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-white">
                 Daily Goals
@@ -485,51 +828,269 @@ export default function Dashboard() {
               </p>
             </div>
 
-            <div className="rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-400">
-              {goalPercentage}% complete
+            <div className="flex items-center gap-2">
+              <div className="rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-400">
+                {goalPercentage}% complete
+              </div>
+
+              <button
+                type="button"
+                onClick={openAddGoal}
+                className="inline-flex items-center gap-2 rounded-xl bg-accent-gradient px-3 py-2 text-xs font-semibold text-white"
+              >
+                <Plus size={14} />
+                Add Goal
+              </button>
             </div>
           </div>
 
+          {/* Progress */}
           <div className="mb-5 h-1.5 overflow-hidden rounded-full bg-bg-border">
             <div
-              className="h-full rounded-full bg-accent-gradient"
+              className="h-full rounded-full bg-accent-gradient transition-all"
               style={{
                 width: `${goalPercentage}%`,
               }}
             />
           </div>
 
-          <div className="space-y-3">
-            {goals.map((goal) => (
-              <div
-                key={goal.id}
-                className="flex items-center gap-3 rounded-xl border border-bg-border bg-bg-hover px-3 py-3"
-              >
-                <CheckCircle2
-                  size={18}
-                  className={
-                    goal.done
-                      ? "text-emerald-400"
-                      : "text-gray-600"
+          {/* Add/Edit form */}
+          {showGoalForm && (
+            <div className="mb-5 rounded-xl border border-bg-border bg-bg-hover p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    {editingGoalId
+                      ? "Edit Goal"
+                      : "Add Goal"}
+                  </p>
+
+                  <p className="mt-1 text-xs text-gray-500">
+                    Enter your goal below.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    resetGoalForm
                   }
-                />
-
-                <span
-                  className={`flex-1 text-sm ${
-                    goal.done
-                      ? "text-gray-500 line-through"
-                      : "text-gray-200"
-                  }`}
+                  className="grid h-8 w-8 place-items-center rounded-lg text-gray-500 hover:bg-bg-card hover:text-white"
                 >
-                  {goal.title}
-                </span>
+                  <X size={15} />
+                </button>
               </div>
-            ))}
-          </div>
 
-          <div className="mt-4 rounded-xl border border-yellow-500/10 bg-yellow-500/5 px-3 py-3 text-[10px] leading-5 text-gray-500">
-            Goals are currently displayed using frontend data.
-            They will become live when the backend Goals API is added.
+              <input
+                value={goalTitle}
+                onChange={(event) =>
+                  setGoalTitle(
+                    event.target.value
+                  )
+                }
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    !goalSaving
+                  ) {
+                    saveGoal();
+                  }
+                }}
+                placeholder="Enter goal title..."
+                autoFocus
+                className="mt-4 w-full rounded-xl border border-bg-border bg-bg-card px-3 py-3 text-sm text-white outline-none placeholder:text-gray-600 focus:border-violet-500/50"
+              />
+
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={
+                    resetGoalForm
+                  }
+                  disabled={goalSaving}
+                  className="rounded-xl border border-bg-border bg-bg-card px-4 py-2.5 text-xs font-semibold text-gray-400 hover:text-white disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={saveGoal}
+                  disabled={
+                    goalSaving ||
+                    !goalTitle.trim()
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl bg-accent-gradient px-4 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {goalSaving ? (
+                    <RefreshCw
+                      size={14}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Save size={14} />
+                  )}
+
+                  {editingGoalId
+                    ? "Save Changes"
+                    : "Add Goal"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Goal list */}
+          {goalsLoading ? (
+            <div className="grid h-40 place-items-center">
+              <Spinner />
+            </div>
+          ) : goals.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-bg-border bg-bg-hover p-6 text-center">
+              <Target
+                size={24}
+                className="mx-auto text-gray-600"
+              />
+
+              <p className="mt-3 text-sm font-semibold text-gray-300">
+                No goals yet
+              </p>
+
+              <p className="mt-1 text-xs text-gray-600">
+                Add your first goal to get started.
+              </p>
+
+              <button
+                type="button"
+                onClick={openAddGoal}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent-gradient px-4 py-2.5 text-xs font-semibold text-white"
+              >
+                <Plus size={14} />
+                Add Goal
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {goals.map((goal) => {
+                const completed =
+                  Boolean(
+                    goal.is_completed
+                  );
+
+                const updating =
+                  goalUpdatingId ===
+                  goal.id;
+
+                const deleting =
+                  goalDeletingId ===
+                  goal.id;
+
+                return (
+                  <div
+                    key={goal.id}
+                    className={`flex items-center gap-3 rounded-xl border px-3 py-3 transition ${
+                      completed
+                        ? "border-emerald-500/10 bg-emerald-500/5"
+                        : "border-bg-border bg-bg-hover"
+                    }`}
+                  >
+                    {/* Complete button */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toggleGoal(goal)
+                      }
+                      disabled={
+                        updating ||
+                        deleting
+                      }
+                      title={
+                        completed
+                          ? "Mark incomplete"
+                          : "Mark complete"
+                      }
+                      className="shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {updating ? (
+                        <RefreshCw
+                          size={19}
+                          className="animate-spin text-violet-400"
+                        />
+                      ) : (
+                        <CheckCircle2
+                          size={19}
+                          className={
+                            completed
+                              ? "text-emerald-400"
+                              : "text-gray-600 hover:text-emerald-400"
+                          }
+                        />
+                      )}
+                    </button>
+
+                    {/* Title */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toggleGoal(goal)
+                      }
+                      disabled={
+                        updating ||
+                        deleting
+                      }
+                      className={`min-w-0 flex-1 text-left text-sm ${
+                        completed
+                          ? "text-gray-500 line-through"
+                          : "text-gray-200"
+                      }`}
+                    >
+                      {goal.title}
+                    </button>
+
+                    {/* Actions */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openEditGoal(goal)
+                      }
+                      disabled={
+                        updating ||
+                        deleting
+                      }
+                      title="Edit goal"
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-gray-600 transition hover:bg-violet-500/10 hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Pencil size={14} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        deleteGoal(goal)
+                      }
+                      disabled={
+                        updating ||
+                        deleting
+                      }
+                      title="Delete goal"
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-gray-600 transition hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {deleting ? (
+                        <RefreshCw
+                          size={14}
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="mt-4 text-[10px] text-gray-600">
+            Goals are synchronized with your StudentOS backend.
           </div>
         </Card>
 
@@ -606,9 +1167,9 @@ export default function Dashboard() {
           </div>
 
           <div className="mt-4 rounded-xl border border-yellow-500/10 bg-yellow-500/5 px-3 py-3 text-[10px] leading-5 text-gray-500">
-            CGPA and streak are currently frontend values.
-            They will be connected to the backend once the
-            corresponding APIs are implemented.
+            CGPA and streak are still using the existing
+            Dashboard values until their backend responses
+            are verified.
           </div>
         </Card>
       </section>
@@ -667,7 +1228,8 @@ export default function Dashboard() {
 
                 <Tooltip
                   contentStyle={{
-                    background: "#151823",
+                    background:
+                      "#151823",
                     border:
                       "1px solid #272b39",
                     borderRadius: 12,
@@ -715,14 +1277,14 @@ export default function Dashboard() {
 
           <div className="mt-5 flex-1 rounded-xl border border-bg-border bg-bg-hover p-4">
             <p className="text-sm leading-6 text-gray-300">
-              Your weekly progress graph is currently powered by
-              frontend data.
+              Your weekly progress graph is currently
+              powered by frontend data.
             </p>
 
             <p className="mt-3 text-xs leading-5 text-gray-500">
-              Later, when the backend provides a progress endpoint,
-              we can replace the frontend data without redesigning
-              this section.
+              When the backend provides a progress endpoint,
+              this section can be connected without redesigning
+              the Dashboard.
             </p>
           </div>
 

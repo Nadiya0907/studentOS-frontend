@@ -15,6 +15,25 @@ import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import { settingsService } from "../services/settingsService";
 
+const applyTheme = (darkMode) => {
+  const root = document.documentElement;
+
+  root.classList.toggle(
+    "light-mode",
+    !darkMode
+  );
+
+  root.setAttribute(
+    "data-theme",
+    darkMode ? "dark" : "light"
+  );
+
+  localStorage.setItem(
+    "studentos_dark_mode",
+    String(darkMode)
+  );
+};
+
 export default function Settings() {
   const { onMenu } = useOutletContext() || {};
 
@@ -24,30 +43,85 @@ export default function Settings() {
     push_notifications: true,
   });
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
 
   useEffect(() => {
     let mounted = true;
 
     const loadSettings = async () => {
-      try {
-        const response = await settingsService.getSettings();
+      let initialDarkMode =
+        localStorage.getItem(
+          "studentos_dark_mode"
+        );
 
-        const backendSettings = response?.data;
+      try {
+        const response =
+          await settingsService.getSettings();
+
+        const backendSettings =
+          response?.data;
 
         if (mounted && backendSettings) {
-          setSettings({
-            dark_mode: backendSettings.dark_mode ?? true,
+          const darkMode =
+            backendSettings.dark_mode ??
+            (initialDarkMode !== null
+              ? initialDarkMode === "true"
+              : true);
+
+          const nextSettings = {
+            dark_mode: darkMode,
             email_notifications:
-              backendSettings.email_notifications ?? true,
+              backendSettings.email_notifications ??
+              true,
             push_notifications:
-              backendSettings.push_notifications ?? true,
-          });
+              backendSettings.push_notifications ??
+              true,
+          };
+
+          setSettings(nextSettings);
+          applyTheme(darkMode);
+        } else if (
+          initialDarkMode !== null
+        ) {
+          const darkMode =
+            initialDarkMode === "true";
+
+          setSettings((current) => ({
+            ...current,
+            dark_mode: darkMode,
+          }));
+
+          applyTheme(darkMode);
+        } else {
+          applyTheme(true);
         }
       } catch (error) {
-        console.error("Settings load error:", error);
-        toast.error("Could not load settings");
+        console.error(
+          "Settings load error:",
+          error
+        );
+
+        const darkMode =
+          initialDarkMode !== null
+            ? initialDarkMode === "true"
+            : true;
+
+        if (mounted) {
+          setSettings((current) => ({
+            ...current,
+            dark_mode: darkMode,
+          }));
+
+          applyTheme(darkMode);
+        }
+
+        toast.error(
+          "Could not load settings"
+        );
       } finally {
         if (mounted) {
           setLoading(false);
@@ -63,23 +137,41 @@ export default function Settings() {
   }, []);
 
   const toggle = (key) => {
-    setSettings((current) => ({
-      ...current,
-      [key]: !current[key],
-    }));
+    setSettings((current) => {
+      const next = {
+        ...current,
+        [key]: !current[key],
+      };
+
+      if (key === "dark_mode") {
+        applyTheme(next.dark_mode);
+      }
+
+      return next;
+    });
   };
 
   const saveSettings = async () => {
     setSaving(true);
 
     try {
-      await settingsService.updateSettings(settings);
+      await settingsService.updateSettings(
+        settings
+      );
 
-      toast.success("Settings saved successfully");
+      applyTheme(settings.dark_mode);
+
+      toast.success(
+        "Settings saved successfully"
+      );
     } catch (error) {
-      console.error("Settings save error:", error);
+      console.error(
+        "Settings save error:",
+        error
+      );
 
-      const detail = error?.response?.data?.detail;
+      const detail =
+        error?.response?.data?.detail;
 
       toast.error(
         typeof detail === "string"
@@ -91,18 +183,25 @@ export default function Settings() {
     }
   };
 
-  const Toggle = ({ enabled, onClick }) => (
+  const Toggle = ({
+    enabled,
+    onClick,
+  }) => (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={enabled}
       className={`relative h-6 w-11 rounded-full p-1 transition ${
-        enabled ? "bg-accent" : "bg-bg-border"
+        enabled
+          ? "bg-accent"
+          : "bg-bg-border"
       }`}
     >
       <span
         className={`block h-4 w-4 rounded-full bg-white transition-transform ${
-          enabled ? "translate-x-5" : "translate-x-0"
+          enabled
+            ? "translate-x-5"
+            : "translate-x-0"
         }`}
       />
     </button>
@@ -165,17 +264,21 @@ export default function Settings() {
           <div className="mt-5 flex items-center justify-between rounded-xl border border-bg-border bg-bg-hover p-4">
             <div>
               <p className="text-sm font-medium text-white">
-                Dark mode
+                {settings.dark_mode
+                  ? "Dark mode"
+                  : "Light mode"}
               </p>
 
               <p className="mt-1 text-[11px] text-gray-600">
-                Use the StudentOS dark dashboard theme.
+                Switch between the StudentOS dark and light themes.
               </p>
             </div>
 
             <Toggle
               enabled={settings.dark_mode}
-              onClick={() => toggle("dark_mode")}
+              onClick={() =>
+                toggle("dark_mode")
+              }
             />
           </div>
         </Card>
@@ -210,9 +313,13 @@ export default function Settings() {
               </div>
 
               <Toggle
-                enabled={settings.push_notifications}
+                enabled={
+                  settings.push_notifications
+                }
                 onClick={() =>
-                  toggle("push_notifications")
+                  toggle(
+                    "push_notifications"
+                  )
                 }
               />
             </div>
@@ -229,9 +336,13 @@ export default function Settings() {
               </div>
 
               <Toggle
-                enabled={settings.email_notifications}
+                enabled={
+                  settings.email_notifications
+                }
                 onClick={() =>
-                  toggle("email_notifications")
+                  toggle(
+                    "email_notifications"
+                  )
                 }
               />
             </div>
@@ -256,7 +367,10 @@ export default function Settings() {
           </div>
 
           <div className="mt-5 flex items-center gap-3 rounded-xl border border-bg-border bg-bg-hover p-4">
-            <Lock size={16} className="text-gray-500" />
+            <Lock
+              size={16}
+              className="text-gray-500"
+            />
 
             <div>
               <p className="text-sm font-medium text-gray-200">
@@ -288,7 +402,10 @@ export default function Settings() {
           </div>
 
           <div className="mt-5 flex items-center gap-3 rounded-xl border border-bg-border bg-bg-hover p-4">
-            <Mail size={16} className="text-gray-500" />
+            <Mail
+              size={16}
+              className="text-gray-500"
+            />
 
             <p className="text-xs text-gray-400">
               Settings are synchronized with the StudentOS backend.
@@ -298,9 +415,14 @@ export default function Settings() {
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={saveSettings} disabled={saving}>
+        <Button
+          onClick={saveSettings}
+          disabled={saving}
+        >
           <Save size={15} />
-          {saving ? "Saving..." : "Save preferences"}
+          {saving
+            ? "Saving..."
+            : "Save preferences"}
         </Button>
       </div>
     </div>

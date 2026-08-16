@@ -103,37 +103,67 @@ export default function FileManagement() {
   // --------------------------------------------------
   // LOAD FILES
   // --------------------------------------------------
-
   const loadFiles = async () => {
-    setLoadingFiles(true);
+  setLoadingFiles(true);
 
-    try {
-      const response =
-        await profileService.getAllFiles();
+  try {
+    const response =
+      await profileService.getAllFiles();
 
-      const rawFiles =
-        response?.data?.files ||
-        response?.data?.items ||
-        response?.data ||
-        response?.files ||
-        [];
+    const data =
+      response?.data || {};
 
-      setFiles(
-        Array.isArray(rawFiles)
-          ? rawFiles
-          : []
-      );
-    } catch (error) {
-      showFileError(
-        error,
-        "load files"
-      );
-      setFiles([]);
-    } finally {
-      setLoadingFiles(false);
-    }
-  };
+    const images = Array.isArray(data.images)
+      ? data.images.map((file) => ({
+          ...file,
+          file_type: "image",
+        }))
+      : [];
 
+    const pdfs = Array.isArray(data.pdfs)
+      ? data.pdfs.map((file) => ({
+          ...file,
+          file_type: "pdf",
+        }))
+      : [];
+
+    const resumes = Array.isArray(data.resumes)
+      ? data.resumes.map((file) => ({
+          ...file,
+          file_type: "resume",
+        }))
+      : [];
+
+    const otherFiles = Array.isArray(
+      data.files
+    )
+      ? data.files
+      : [];
+
+    const allFiles = [
+      ...images,
+      ...pdfs,
+      ...resumes,
+      ...otherFiles,
+    ];
+
+    setFiles(allFiles);
+  } catch (error) {
+    console.error(
+      "Load files error:",
+      error
+    );
+
+    showFileError(
+      error,
+      "load files"
+    );
+
+    setFiles([]);
+  } finally {
+    setLoadingFiles(false);
+  }
+};
   useEffect(() => {
     loadFiles();
   }, []);

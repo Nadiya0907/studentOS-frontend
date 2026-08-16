@@ -6,7 +6,7 @@ const call = (mock, real) =>
 
 export const placementService = {
   // ---------------------------------
-  // JOBS - CURRENT BACKEND SUPPORT
+  // JOBS
   // ---------------------------------
 
   getJobs: () =>
@@ -28,46 +28,80 @@ export const placementService = {
   // ---------------------------------
   // COMPANIES
   // ---------------------------------
-  // Keep this feature because it exists
-  // in the frontend. The current backend
-  // code does not provide this endpoint yet.
 
   getCompanies: () =>
     USE_MOCK_API
       ? mockClient.companies()
       : api.get("/companies"),
 
+  createCompany: (data) =>
+    USE_MOCK_API
+      ? Promise.resolve({
+          data: {
+            id: Date.now(),
+            ...data,
+          },
+        })
+      : api.post("/companies", data),
+
+  deleteCompany: (companyId) =>
+    USE_MOCK_API
+      ? Promise.resolve({
+          data: { id: companyId },
+        })
+      : api.delete(
+          `/companies/${companyId}`
+        ),
+
   // ---------------------------------
   // INTERNSHIPS
   // ---------------------------------
-  // Keep this feature because it exists
-  // in the frontend. The current backend
-  // code does not provide this endpoint yet.
 
   getInternships: () =>
     USE_MOCK_API
       ? mockClient.internships()
       : api.get("/internships"),
 
+  createInternship: (data) =>
+    USE_MOCK_API
+      ? Promise.resolve({
+          data: {
+            id: Date.now(),
+            ...data,
+          },
+        })
+      : api.post("/internships", data),
+
+  deleteInternship: (internshipId) =>
+    USE_MOCK_API
+      ? Promise.resolve({
+          data: { id: internshipId },
+        })
+      : api.delete(
+          `/internships/${internshipId}`
+        ),
+
   // ---------------------------------
   // RESUME UPLOAD
   // ---------------------------------
-  // Keep this feature because it exists
-  // in the frontend. The current backend
-  // code does not currently provide
-  // /upload/resume.
 
   uploadResume: (formData) =>
     USE_MOCK_API
       ? Promise.resolve({
           data: {
-            message: "Demo resume upload complete",
+            message:
+              "Demo resume upload complete",
             url: "#",
           },
         })
-      : api.post("/upload/resume", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }),
+      : api.post(
+          "/upload/resume",
+          formData,
+          {
+            headers: {
+              "Content-Type":
+                "multipart/form-data",
+            },
+          }
+        ),
 };

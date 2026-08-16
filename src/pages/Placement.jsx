@@ -12,8 +12,12 @@ import {
   ExternalLink,
   CheckCircle2,
   Sparkles,
+  X,
 } from "lucide-react";
-import { useOutletContext } from "react-router-dom";
+import {
+  useNavigate,
+  useOutletContext,
+} from "react-router-dom";
 import toast from "react-hot-toast";
 
 import Card from "../components/common/Card";
@@ -110,7 +114,7 @@ const mockData = {
     {
       id: 1,
       title: "Frontend Development Intern",
-      company: "TechNova Solutions",
+      company_name: "TechNova Solutions",
       location: "Remote",
       skills: ["React", "JavaScript", "HTML", "CSS"],
       duration: "6 months",
@@ -121,7 +125,7 @@ const mockData = {
     {
       id: 2,
       title: "Java Development Intern",
-      company: "CloudBridge Technologies",
+      company_name: "CloudBridge Technologies",
       location: "Hyderabad",
       skills: ["Java", "Spring Boot", "MySQL"],
       duration: "4 months",
@@ -132,7 +136,7 @@ const mockData = {
     {
       id: 3,
       title: "Software Engineering Intern",
-      company: "Innovate Labs",
+      company_name: "Innovate Labs",
       location: "Remote",
       skills: ["Python", "DSA", "Git"],
       duration: "3 months",
@@ -152,13 +156,19 @@ const normalizeJobs = (jobs) =>
       job.company_name ||
       job.company ||
       "Company not specified",
-    location: job.location || "Location not specified",
-    type: job.job_type || job.type || "Job",
+    location:
+      job.location ||
+      "Location not specified",
+    type:
+      job.job_type ||
+      job.type ||
+      "Job",
     salary:
       job.stipend_salary ||
       job.salary ||
       "Salary not specified",
-    description: job.description || "",
+    description:
+      job.description || "",
     skills: job.skills_required
       ? String(job.skills_required)
           .split(",")
@@ -167,105 +177,165 @@ const normalizeJobs = (jobs) =>
       : Array.isArray(job.skills)
       ? job.skills
       : [],
-    posted: job.posted_date || job.posted || "",
-    apply_link: job.apply_link || "",
-    posted_by: job.posted_by || "Placement Cell",
-    recommended: Boolean(job.recommended),
+    posted:
+      job.posted_date ||
+      job.posted ||
+      "",
+    apply_link:
+      job.apply_link || "",
+    posted_by:
+      job.posted_by ||
+      "Placement Cell",
+    recommended:
+      Boolean(job.recommended),
   }));
 
 export default function Placement() {
-  const { onMenu } = useOutletContext() || {};
+  const { onMenu } =
+    useOutletContext() || {};
 
-  const [active, setActive] = useState("jobs");
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [usingDemoData, setUsingDemoData] = useState(false);
+  const navigate = useNavigate();
+
+  const [active, setActive] =
+    useState("jobs");
+
+  const [items, setItems] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [search, setSearch] =
+    useState("");
+
+  const [uploading, setUploading] =
+    useState(false);
+
+  const [usingDemoData, setUsingDemoData] =
+    useState(false);
+
+  const [selectedItem, setSelectedItem] =
+    useState(null);
+
+  const [selectedType, setSelectedType] =
+    useState("");
 
   useEffect(() => {
     let mounted = true;
 
-    const loadPlacementData = async () => {
-      setLoading(true);
-      setUsingDemoData(false);
+    const loadPlacementData =
+      async () => {
+        setLoading(true);
+        setUsingDemoData(false);
 
-      try {
-        let response;
+        try {
+          let response;
 
-        if (active === "jobs") {
-          response = await placementService.getJobs();
+          if (active === "jobs") {
+            response =
+              await placementService.getJobs();
 
-          const jobs =
-            response?.data?.jobs ||
-            response?.jobs ||
-            [];
+            const jobs =
+              response?.data?.jobs ||
+              response?.jobs ||
+              [];
 
-          if (mounted) {
-            if (Array.isArray(jobs) && jobs.length > 0) {
-              setItems(normalizeJobs(jobs));
-            } else {
-              setItems(mockData.jobs);
-              setUsingDemoData(true);
+            if (mounted) {
+              if (
+                Array.isArray(jobs) &&
+                jobs.length > 0
+              ) {
+                setItems(
+                  normalizeJobs(jobs)
+                );
+              } else {
+                setItems(
+                  mockData.jobs
+                );
+                setUsingDemoData(
+                  true
+                );
+              }
+            }
+          } else if (
+            active === "companies"
+          ) {
+            response =
+              await placementService.getCompanies();
+
+            const companies =
+              response?.data?.companies ||
+              response?.data ||
+              response?.companies ||
+              [];
+
+            if (mounted) {
+              if (
+                Array.isArray(
+                  companies
+                ) &&
+                companies.length > 0
+              ) {
+                setItems(companies);
+              } else {
+                setItems(
+                  mockData.companies
+                );
+                setUsingDemoData(
+                  true
+                );
+              }
+            }
+          } else {
+            response =
+              await placementService.getInternships();
+
+            const internships =
+              response?.data?.internships ||
+              response?.data ||
+              response?.internships ||
+              [];
+
+            if (mounted) {
+              if (
+                Array.isArray(
+                  internships
+                ) &&
+                internships.length > 0
+              ) {
+                setItems(
+                  internships
+                );
+              } else {
+                setItems(
+                  mockData.internships
+                );
+                setUsingDemoData(
+                  true
+                );
+              }
             }
           }
-        } else if (active === "companies") {
-          response = await placementService.getCompanies();
-
-          const companies =
-            response?.data?.companies ||
-            response?.data ||
-            response?.companies ||
-            [];
+        } catch (error) {
+          console.error(
+            `Placement ${active} error:`,
+            error
+          );
 
           if (mounted) {
-            if (
-              Array.isArray(companies) &&
-              companies.length > 0
-            ) {
-              setItems(companies);
-            } else {
-              setItems(mockData.companies);
-              setUsingDemoData(true);
-            }
+            setItems(
+              mockData[active]
+            );
+            setUsingDemoData(
+              true
+            );
           }
-        } else if (active === "internships") {
-          response = await placementService.getInternships();
-
-          const internships =
-            response?.data?.internships ||
-            response?.data ||
-            response?.internships ||
-            [];
-
+        } finally {
           if (mounted) {
-            if (
-              Array.isArray(internships) &&
-              internships.length > 0
-            ) {
-              setItems(internships);
-            } else {
-              setItems(mockData.internships);
-              setUsingDemoData(true);
-            }
+            setLoading(false);
           }
         }
-      } catch (error) {
-        console.error(
-          `Placement ${active} error:`,
-          error
-        );
-
-        if (mounted) {
-          setItems(mockData[active]);
-          setUsingDemoData(true);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
+      };
 
     loadPlacementData();
 
@@ -275,7 +345,8 @@ export default function Placement() {
   }, [active]);
 
   const filteredItems = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query =
+      search.trim().toLowerCase();
 
     if (!query) {
       return items;
@@ -289,55 +360,128 @@ export default function Placement() {
         ${item.company_name || ""}
         ${item.industry || ""}
         ${item.location || ""}
-        ${Array.isArray(item.skills)
-          ? item.skills.join(" ")
-          : item.skills_required || ""}
+        ${item.role || ""}
         ${item.description || ""}
+        ${
+          Array.isArray(item.skills)
+            ? item.skills.join(" ")
+            : item.skills_required || ""
+        }
       `.toLowerCase();
 
       return text.includes(query);
     });
   }, [items, search]);
 
-  const uploadResume = async (event) => {
-    const file = event.target.files?.[0];
+  // --------------------------------------------------
+  // RESUME UPLOAD
+  // --------------------------------------------------
+
+  const uploadResume = async (
+    event
+  ) => {
+    const file =
+      event.target.files?.[0];
 
     if (!file) {
       return;
     }
 
-    if (file.type !== "application/pdf") {
-      toast.error("Please upload your resume as a PDF.");
+    const isPdf =
+      file.type ===
+        "application/pdf" ||
+      file.name
+        .toLowerCase()
+        .endsWith(".pdf");
+
+    if (!isPdf) {
+      toast.error(
+        "Please upload your resume as a PDF."
+      );
       event.target.value = "";
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Resume must be smaller than 5 MB.");
+    if (
+      file.size >
+      5 * 1024 * 1024
+    ) {
+      toast.error(
+        "Resume must be smaller than 5 MB."
+      );
       event.target.value = "";
       return;
     }
 
     setUploading(true);
 
-    const formData = new FormData();
-    formData.append("resume", file);
+    const formData =
+      new FormData();
+
+    // Backend expects "file"
+    formData.append(
+      "file",
+      file
+    );
 
     try {
-      await placementService.uploadResume(formData);
-
-      toast.success("Resume uploaded successfully");
-    } catch (error) {
-      console.error("Resume upload error:", error);
-
-      toast.error(
-        "Resume upload endpoint is not available in the current backend yet."
+      await placementService.uploadResume(
+        formData
       );
+
+      toast.success(
+        "Resume uploaded successfully."
+      );
+    } catch (error) {
+      console.error(
+        "Resume upload error:",
+        error
+      );
+
+      const detail =
+        error?.response?.data?.detail;
+
+      let message =
+        "Could not upload resume.";
+
+      if (
+        typeof detail === "string"
+      ) {
+        message =
+          detail.toLowerCase().includes(
+            "api_key"
+          )
+            ? "File upload service is temporarily unavailable. Please try again later."
+            : detail;
+      }
+
+      toast.error(message);
     } finally {
       setUploading(false);
       event.target.value = "";
     }
   };
+
+  // --------------------------------------------------
+  // OPEN DETAILS
+  // --------------------------------------------------
+
+  const openDetails = (
+    item,
+    type
+  ) => {
+    setSelectedItem(item);
+    setSelectedType(type);
+  };
+
+  const closeDetails = () => {
+    setSelectedItem(null);
+    setSelectedType("");
+  };
+
+  // --------------------------------------------------
+  // JOB ACTION
+  // --------------------------------------------------
 
   const openJob = (item) => {
     if (item.apply_link) {
@@ -346,9 +490,10 @@ export default function Placement() {
         "_blank",
         "noopener,noreferrer"
       );
-    } else {
-      toast("This job does not have an application link yet.");
+      return;
     }
+
+    openDetails(item, "jobs");
   };
 
   return (
@@ -453,11 +598,11 @@ export default function Placement() {
         </div>
       </Card>
 
-      {/* Demo / pending backend notice */}
+      {/* Demo notice */}
       {usingDemoData && (
         <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
           This section is currently using frontend demo data because
-          the corresponding backend endpoint is not available yet.
+          the corresponding backend endpoint returned no data.
         </div>
       )}
 
@@ -497,7 +642,9 @@ export default function Placement() {
           <input
             value={search}
             onChange={(event) =>
-              setSearch(event.target.value)
+              setSearch(
+                event.target.value
+              )
             }
             placeholder={`Search ${active}...`}
             className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-gray-600"
@@ -506,7 +653,9 @@ export default function Placement() {
           {search && (
             <button
               type="button"
-              onClick={() => setSearch("")}
+              onClick={() =>
+                setSearch("")
+              }
               className="text-xs text-gray-500 hover:text-white"
             >
               Clear
@@ -515,7 +664,7 @@ export default function Placement() {
         </div>
       </section>
 
-      {/* Section heading */}
+      {/* Heading */}
       <div>
         <h2 className="text-lg font-semibold text-white">
           {active === "jobs"
@@ -542,209 +691,247 @@ export default function Placement() {
       ) : filteredItems.length === 0 ? (
         <EmptyState
           title={`No ${active} found`}
-          description="Try another search term or check the backend availability."
+          description="Try another search term."
         />
       ) : active === "companies" ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredItems.map((company, index) => (
-            <Card
-              key={company.id || company._id || index}
-              className="group transition hover:-translate-y-0.5 hover:border-purple-500/30"
-            >
-              <div className="flex items-start justify-between">
-                <div className="grid h-12 w-12 place-items-center rounded-xl bg-purple-500/10 text-purple-400">
-                  <Building2 size={22} />
-                </div>
-
-                <div className="flex items-center gap-1 rounded-full border border-bg-border bg-bg-hover px-2.5 py-1 text-[10px] text-yellow-400">
-                  <Star size={12} fill="currentColor" />
-                  {company.rating || "4.5"}
-                </div>
-              </div>
-
-              <h3 className="mt-5 text-base font-semibold text-white">
-                {company.name || "Company"}
-              </h3>
-
-              <p className="mt-1 text-xs text-gray-500">
-                {company.industry || "Technology"}
-              </p>
-
-              {company.location && (
-                <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-                  <MapPin size={14} />
-                  {company.location}
-                </div>
-              )}
-
-              <div className="mt-4 flex items-center justify-between rounded-xl border border-bg-border bg-bg-hover px-3 py-3">
-                <span className="text-xs text-gray-500">
-                  Open positions
-                </span>
-
-                <span className="text-sm font-semibold text-white">
-                  {company.openings || 0}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-bg-border bg-bg-hover px-3 py-2.5 text-xs font-semibold text-gray-300 transition hover:text-white"
+          {filteredItems.map(
+            (company, index) => (
+              <Card
+                key={
+                  company.id ||
+                  company._id ||
+                  index
+                }
+                className="group transition hover:-translate-y-0.5 hover:border-purple-500/30"
               >
-                View Company
-                <ExternalLink size={14} />
-              </button>
-            </Card>
-          ))}
+                <div className="flex items-start justify-between">
+                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-purple-500/10 text-purple-400">
+                    <Building2 size={22} />
+                  </div>
+
+                  <div className="flex items-center gap-1 rounded-full border border-bg-border bg-bg-hover px-2.5 py-1 text-[10px] text-yellow-400">
+                    <Star
+                      size={12}
+                      fill="currentColor"
+                    />
+                    {company.rating ||
+                      "4.5"}
+                  </div>
+                </div>
+
+                <h3 className="mt-5 text-base font-semibold text-white">
+                  {company.name ||
+                    "Company"}
+                </h3>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  {company.industry ||
+                    company.role ||
+                    "Technology"}
+                </p>
+
+                {company.location && (
+                  <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
+                    <MapPin size={14} />
+                    {company.location}
+                  </div>
+                )}
+
+                <div className="mt-4 flex items-center justify-between rounded-xl border border-bg-border bg-bg-hover px-3 py-3">
+                  <span className="text-xs text-gray-500">
+                    Open positions
+                  </span>
+
+                  <span className="text-sm font-semibold text-white">
+                    {company.openings ||
+                      0}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    openDetails(
+                      company,
+                      "companies"
+                    )
+                  }
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-bg-border bg-bg-hover px-3 py-2.5 text-xs font-semibold text-gray-300 transition hover:text-white"
+                >
+                  View Company
+                  <ExternalLink size={14} />
+                </button>
+              </Card>
+            )
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {filteredItems.map((item, index) => (
-            <Card
-              key={item.id || item._id || index}
-              className="group transition hover:border-purple-500/30"
-            >
-              <div className="flex items-start gap-4">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-400">
-                  {active === "jobs" ? (
-                    <Briefcase size={21} />
-                  ) : (
-                    <GraduationCap size={21} />
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h3 className="text-base font-semibold text-white">
-                        {item.title ||
-                          item.name ||
-                          "Opportunity"}
-                      </h3>
-
-                      <p className="mt-1 text-xs font-medium text-violet-400">
-                        {item.company ||
-                          item.company_name ||
-                          "Student opportunity"}
-                      </p>
-                    </div>
-
-                    {item.recommended && (
-                      <span className="flex w-fit items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-emerald-400">
-                        <Sparkles size={11} />
-                        Recommended
-                      </span>
+          {filteredItems.map(
+            (item, index) => (
+              <Card
+                key={
+                  item.id ||
+                  item._id ||
+                  index
+                }
+                className="group transition hover:border-purple-500/30"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-400">
+                    {active ===
+                    "jobs" ? (
+                      <Briefcase
+                        size={21}
+                      />
+                    ) : (
+                      <GraduationCap
+                        size={21}
+                      />
                     )}
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-500">
-                    {item.location && (
-                      <span className="flex items-center gap-1.5">
-                        <MapPin size={13} />
-                        {item.location}
-                      </span>
-                    )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="text-base font-semibold text-white">
+                          {item.title ||
+                            item.name ||
+                            "Opportunity"}
+                        </h3>
 
-                    {(item.type || item.job_type) && (
-                      <span className="flex items-center gap-1.5">
-                        <Briefcase size={13} />
-                        {item.type ||
-                          item.job_type}
-                      </span>
-                    )}
-
-                    {item.experience && (
-                      <span className="flex items-center gap-1.5">
-                        <GraduationCap size={13} />
-                        {item.experience}
-                      </span>
-                    )}
-
-                    {item.duration && (
-                      <span className="flex items-center gap-1.5">
-                        <Clock3 size={13} />
-                        {item.duration}
-                      </span>
-                    )}
-                  </div>
-
-                  {Array.isArray(item.skills) &&
-                    item.skills.length > 0 && (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {item.skills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="rounded-full border border-bg-border bg-bg-hover px-2.5 py-1 text-[10px] text-gray-400"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                  {item.skills_required &&
-                    !Array.isArray(item.skills) && (
-                      <div className="mt-4">
-                        <p className="text-[10px] uppercase tracking-wide text-gray-600">
-                          Skills required
-                        </p>
-
-                        <p className="mt-1 text-xs leading-5 text-gray-400">
-                          {item.skills_required}
+                        <p className="mt-1 text-xs font-medium text-violet-400">
+                          {item.company ||
+                            item.company_name ||
+                            "Student opportunity"}
                         </p>
                       </div>
-                    )}
 
-                  {item.description && (
-                    <p className="mt-4 text-xs leading-5 text-gray-500">
-                      {item.description}
-                    </p>
-                  )}
-
-                  <div className="mt-5 flex flex-col gap-3 border-t border-bg-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        {item.salary ||
-                          item.stipend ||
-                          item.stipend_salary ||
-                          "Opportunity available"}
-                      </p>
-
-                      {(
-                        item.posted ||
-                        item.posted_date
-                      ) && (
-                        <p className="mt-1 text-[10px] text-gray-600">
-                          Posted{" "}
-                          {item.posted ||
-                            item.posted_date}
-                        </p>
+                      {item.recommended && (
+                        <span className="flex w-fit items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-emerald-400">
+                          <Sparkles
+                            size={11}
+                          />
+                          Recommended
+                        </span>
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (
-                          active === "jobs"
-                        ) {
-                          openJob(item);
-                        } else {
-                          toast(
-                            "Internship application endpoint is not available yet."
-                          );
-                        }
-                      }}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-gradient px-4 py-2.5 text-xs font-semibold text-white transition hover:opacity-90"
-                    >
-                      View Opportunity
-                      <ExternalLink size={14} />
-                    </button>
+                    <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-500">
+                      {item.location && (
+                        <span className="flex items-center gap-1.5">
+                          <MapPin size={13} />
+                          {item.location}
+                        </span>
+                      )}
+
+                      {(item.type ||
+                        item.job_type) && (
+                        <span className="flex items-center gap-1.5">
+                          <Briefcase
+                            size={13}
+                          />
+                          {item.type ||
+                            item.job_type}
+                        </span>
+                      )}
+
+                      {item.experience && (
+                        <span className="flex items-center gap-1.5">
+                          <GraduationCap
+                            size={13}
+                          />
+                          {item.experience}
+                        </span>
+                      )}
+
+                      {item.duration && (
+                        <span className="flex items-center gap-1.5">
+                          <Clock3 size={13} />
+                          {item.duration}
+                        </span>
+                      )}
+                    </div>
+
+                    {Array.isArray(
+                      item.skills
+                    ) &&
+                      item.skills.length >
+                        0 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {item.skills.map(
+                            (skill) => (
+                              <span
+                                key={
+                                  skill
+                                }
+                                className="rounded-full border border-bg-border bg-bg-hover px-2.5 py-1 text-[10px] text-gray-400"
+                              >
+                                {skill}
+                              </span>
+                            )
+                          )}
+                        </div>
+                      )}
+
+                    {item.description && (
+                      <p className="mt-4 text-xs leading-5 text-gray-500">
+                        {item.description}
+                      </p>
+                    )}
+
+                    <div className="mt-5 flex flex-col gap-3 border-t border-bg-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          {item.salary ||
+                            item.stipend ||
+                            item.stipend_salary ||
+                            "Opportunity available"}
+                        </p>
+
+                        {(item.posted ||
+                          item.posted_date) && (
+                          <p className="mt-1 text-[10px] text-gray-600">
+                            Posted{" "}
+                            {item.posted ||
+                              item.posted_date}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            active ===
+                            "jobs"
+                          ) {
+                            openJob(item);
+                          } else {
+                            openDetails(
+                              item,
+                              "internships"
+                            );
+                          }
+                        }}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-gradient px-4 py-2.5 text-xs font-semibold text-white transition hover:opacity-90"
+                      >
+                        {active ===
+                        "jobs"
+                          ? item.apply_link
+                            ? "Apply Now"
+                            : "View Details"
+                          : "View Opportunity"}
+
+                        <ExternalLink size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            )
+          )}
         </div>
       )}
 
@@ -769,12 +956,222 @@ export default function Placement() {
 
           <button
             type="button"
+            onClick={() =>
+              navigate("/profile")
+            }
             className="rounded-xl border border-bg-border bg-bg-hover px-4 py-2.5 text-xs font-semibold text-gray-300 hover:text-white"
           >
             Review Profile
           </button>
         </div>
       </Card>
+
+      {/* DETAILS MODAL */}
+      {selectedItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={closeDetails}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl border border-bg-border bg-bg-card p-6 shadow-2xl"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-violet-400">
+                  {selectedType ===
+                  "companies"
+                    ? "Company Details"
+                    : selectedType ===
+                      "internships"
+                    ? "Internship Details"
+                    : "Job Details"}
+                </p>
+
+                <h2 className="mt-1 text-xl font-bold text-white">
+                  {selectedItem.title ||
+                    selectedItem.name ||
+                    selectedItem.company_name ||
+                    "Opportunity"}
+                </h2>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  {selectedItem.company ||
+                    selectedItem.company_name ||
+                    ""}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeDetails}
+                className="grid h-9 w-9 place-items-center rounded-xl border border-bg-border bg-bg-hover text-gray-400 hover:text-white"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {selectedItem.role && (
+                <div className="rounded-xl border border-bg-border bg-bg-hover p-4">
+                  <p className="text-xs text-gray-500">
+                    Role
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white">
+                    {selectedItem.role}
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.location && (
+                <div className="rounded-xl border border-bg-border bg-bg-hover p-4">
+                  <p className="text-xs text-gray-500">
+                    Location
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white">
+                    {selectedItem.location}
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.stipend && (
+                <div className="rounded-xl border border-bg-border bg-bg-hover p-4">
+                  <p className="text-xs text-gray-500">
+                    Stipend
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white">
+                    {selectedItem.stipend}
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.salary && (
+                <div className="rounded-xl border border-bg-border bg-bg-hover p-4">
+                  <p className="text-xs text-gray-500">
+                    Salary
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white">
+                    {selectedItem.salary}
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.duration && (
+                <div className="rounded-xl border border-bg-border bg-bg-hover p-4">
+                  <p className="text-xs text-gray-500">
+                    Duration
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white">
+                    {selectedItem.duration}
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.industry && (
+                <div className="rounded-xl border border-bg-border bg-bg-hover p-4">
+                  <p className="text-xs text-gray-500">
+                    Industry
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white">
+                    {selectedItem.industry}
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.openings !==
+                undefined && (
+                <div className="rounded-xl border border-bg-border bg-bg-hover p-4">
+                  <p className="text-xs text-gray-500">
+                    Open Positions
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white">
+                    {selectedItem.openings}
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.type && (
+                <div className="rounded-xl border border-bg-border bg-bg-hover p-4">
+                  <p className="text-xs text-gray-500">
+                    Type
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white">
+                    {selectedItem.type}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {selectedItem.description && (
+              <div className="mt-4 rounded-xl border border-bg-border bg-bg-hover p-4">
+                <p className="text-xs text-gray-500">
+                  Description
+                </p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">
+                  {selectedItem.description}
+                </p>
+              </div>
+            )}
+
+            {Array.isArray(
+              selectedItem.skills
+            ) &&
+              selectedItem.skills.length >
+                0 && (
+                <div className="mt-4">
+                  <p className="text-xs text-gray-500">
+                    Skills
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedItem.skills.map(
+                      (skill) => (
+                        <span
+                          key={skill}
+                          className="rounded-full border border-bg-border bg-bg-hover px-3 py-1.5 text-xs text-gray-400"
+                        >
+                          {skill}
+                        </span>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+            {selectedType ===
+              "internships" && (
+              <div className="mt-6 rounded-xl border border-violet-500/10 bg-violet-500/5 p-4">
+                <p className="text-xs leading-5 text-gray-500">
+                  This internship can be viewed here.
+                  Application functionality can be connected when the backend
+                  application endpoint is available.
+                </p>
+              </div>
+            )}
+
+            {selectedType ===
+              "jobs" &&
+              selectedItem.apply_link && (
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openJob(
+                        selectedItem
+                      )
+                    }
+                    className="inline-flex items-center gap-2 rounded-xl bg-accent-gradient px-5 py-2.5 text-xs font-semibold text-white"
+                  >
+                    Apply Now
+                    <ExternalLink size={14} />
+                  </button>
+                </div>
+              )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

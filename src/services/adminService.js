@@ -35,11 +35,9 @@ export const adminService = {
  // Kept because this feature is part of the roadmap.
   // Current backend may return 404 until your teammate implements it.
   deleteUser: (id) =>
-    USE_MOCK_API
-      ? Promise.resolve({
-          data: { id },
-        })
-      : api.delete("/admin/users", {
-          data: { id },
-        }),
+  USE_MOCK_API
+    ? Promise.resolve({
+        data: { id },
+      })
+    : api.delete(`/admin/users/${id}`),
 };

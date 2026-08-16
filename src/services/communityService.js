@@ -57,15 +57,13 @@ export const communityService = {
         }),
 
   deleteComment: (commentId) =>
-    USE_MOCK_API
-      ? Promise.resolve({
-          data: { id: commentId },
-        })
-      : api.delete("/community/comments", {
-          data: {
-            comment_id: commentId,
-          },
-        }),
+  USE_MOCK_API
+    ? Promise.resolve({
+        data: { id: commentId },
+      })
+    : api.delete(
+        `/community/comments/${commentId}`
+      ),
 
   // -----------------------------
   // LIKES

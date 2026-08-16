@@ -59,6 +59,14 @@ export const authService = {
           data: { message: "Reset link sent" }, 
         }) 
       : api.post("/forgot-password", data), 
+  resetPassword: (data) =>
+  USE_MOCK_API
+    ? Promise.resolve({
+        data: {
+          message: "Password reset successfully",
+        },
+      })
+    : api.post("/reset-password", data),
  
   verifyEmail: (data) => 
     USE_MOCK_API 

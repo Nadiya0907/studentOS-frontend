@@ -9,6 +9,8 @@ import {
   Settings,
   FileText,
   Bell,
+  Upload,
+  
 } from "lucide-react";
 
 const links = [
@@ -43,6 +45,11 @@ const links = [
     icon: FileText,
   },
   {
+  to: "/files",
+  label: "File Management",
+  icon: Upload,
+},
+  {
     to: "/profile",
     label: "Profile",
     icon: User,
@@ -57,6 +64,7 @@ const links = [
     label: "Settings",
     icon: Settings,
   },
+  
 ];
 
 export default function Sidebar() {
